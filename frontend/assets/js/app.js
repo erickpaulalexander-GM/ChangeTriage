@@ -85,6 +85,14 @@
     document.getElementById("reset").addEventListener("click", reset);
     document.getElementById("overlay").addEventListener("click", window.Drawer.close);
 
+    // Single-file bundle (SharePoint library or file://): prefer the inlined
+    // payload so the page renders with zero fetch/XHR. The fetch fallback
+    // chain below stays untouched for dev/SharePoint-folder mode.
+    if (window.TRIAGE_DATA && Array.isArray(window.TRIAGE_DATA.rows)) {
+      onData(window.TRIAGE_DATA);
+      return;
+    }
+
     var chain = Promise.reject(new Error("start"));
     SOURCES.forEach(function (src) {
       chain = chain.catch(function () {
@@ -94,18 +102,20 @@
         });
       });
     });
-    chain.then(function (data) {
-      state.rows = Array.isArray(data.rows) ? data.rows : [];
-      // Counts only — never log row values (production-data caution).
-      console.info("[triage] data.json loaded: count=" + state.rows.length);
-      setStatus(state.rows.length + " changes loaded");
-      if (window.TriageSearch) window.TriageSearch.refresh();
-      else renderList(state.rows);
-    }).catch(function (err) {
+    chain.then(onData).catch(function (err) {
       console.error("[triage] data.json load failed: " + err.message);
       setStatus("Could not load change data. Re-run the pipeline to publish data.json.");
       renderList([]);
     });
+  }
+
+  function onData(data) {
+    state.rows = Array.isArray(data.rows) ? data.rows : [];
+    // Counts only — never log row values (production-data caution).
+    console.info("[triage] data.json loaded: count=" + state.rows.length);
+    setStatus(state.rows.length + " changes loaded");
+    if (window.TriageSearch) window.TriageSearch.refresh();
+    else renderList(state.rows);
   }
 
   window.Triage = {
