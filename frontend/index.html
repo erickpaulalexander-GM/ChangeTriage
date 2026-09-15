@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Change Triage — Portal de Validación de Cambios</title>
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script src="assets/js/drawer.js" defer></script>
+  <script src="assets/js/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <img class="logo" src="assets/images/BCP.png" alt="BCP logo">
+    <div class="titles">
+      <h1>Change Triage</h1>
+      <p class="subtitle">Portal de Validación de Cambios en Producción</p>
+    </div>
+    <img class="logo" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
+  </header>
+
+  <main id="main">
+    <p class="status" id="status" role="status" aria-live="polite">Loading change data…</p>
+    <ul class="results" id="results" aria-label="Change results"></ul>
+
+    <section class="empty" id="empty" hidden>
+      <h2>No matching changes</h2>
+      <p>No rows match the current view. Reset to show the full change list.</p>
+      <button type="button" id="reset">Show all changes</button>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true"
+      aria-labelledby="drawer-title" hidden>
+    <div class="drawer-head">
+      <h2 id="drawer-title">Change detail</h2>
+      <button type="button" id="drawer-close" aria-label="Close detail">✕</button>
+    </div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <noscript><p class="status">This portal needs JavaScript to render change data.</p></noscript>
+</body>
+</html>
