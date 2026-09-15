@@ -40,18 +40,74 @@ window.Drawer = (function () {
     return String(value);
   }
 
+  function groupId(name) {
+    return "grp-" + String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+
+  function setExpanded(section, expanded) {
+    var button = section.querySelector(".group-header");
+    var list = section.querySelector(".group-list");
+    if (!button || !list) return;
+    button.setAttribute("aria-expanded", expanded ? "true" : "false");
+    if (expanded) list.removeAttribute("hidden");
+    else list.setAttribute("hidden", "");
+  }
+
   function open(row, triggerEl) {
     lastTrigger = triggerEl || null;
     var body = document.getElementById("drawer-body");
     body.innerHTML = "";
     document.getElementById("drawer-title").textContent =
       (row.ticket || "Change") + " — " + (row.nombre_app || "");
-    GROUPS.forEach(function ([name, keys]) {
+    // Compact internal nav: anchor chips linking to each group section.
+    var nav = document.createElement("nav");
+    nav.className = "drawer-nav";
+    nav.setAttribute("aria-label", "Change detail sections");
+    var sections = [];
+    GROUPS.forEach(function ([name, keys], index) {
+      var sectionId = groupId(name);
+      var listId = sectionId + "-list";
+      var headerId = sectionId + "-header";
+      var chip = document.createElement("a");
+      chip.className = "chip";
+      chip.href = "#" + sectionId;
+      chip.textContent = name;
+      chip.addEventListener("click", function (event) {
+        event.preventDefault();
+        setExpanded(sections[index], true);
+        sections[index].scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+      nav.append(chip);
       var section = document.createElement("section");
       section.className = "group";
-      var heading = document.createElement("h3");
-      heading.textContent = name;
+      section.id = sectionId;
+      var header = document.createElement("button");
+      header.type = "button";
+      header.className = "group-header";
+      header.id = headerId;
+      header.setAttribute("aria-expanded", index === 0 ? "true" : "false");
+      header.setAttribute("aria-controls", listId);
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "group-name";
+      nameSpan.textContent = name;
+      var countSpan = document.createElement("span");
+      countSpan.className = "group-count";
+      countSpan.textContent = String(keys.length);
+      var chevron = document.createElement("span");
+      chevron.className = "group-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      chevron.textContent = "▾";
+      header.append(nameSpan, countSpan, chevron);
+      header.addEventListener("click", function () {
+        var expanded = header.getAttribute("aria-expanded") !== "true";
+        setExpanded(section, expanded);
+      });
       var list = document.createElement("dl");
+      list.className = "group-list";
+      list.id = listId;
+      list.setAttribute("role", "region");
+      list.setAttribute("aria-labelledby", headerId);
+      if (index !== 0) list.setAttribute("hidden", "");
       keys.forEach(function (key) {
         var dt = document.createElement("dt");
         dt.textContent = label(key);
@@ -62,9 +118,11 @@ window.Drawer = (function () {
         wrap.append(dt, dd);
         list.append(wrap);
       });
-      section.append(heading, list);
-      body.append(section);
+      section.append(header, list);
+      sections.push(section);
     });
+    body.append(nav);
+    sections.forEach(function (section) { body.append(section); });
     document.getElementById("drawer").hidden = false;
     document.getElementById("overlay").hidden = false;
     document.getElementById("drawer-close").focus();
