@@ -20,6 +20,20 @@
     els.status.textContent = text;
   }
 
+  // Badge color by estado_actual: red (Cancelado/Rechazado), amber
+// (Coordinado), green (Pase en curso), gray default for the rest.
+  var STATE_RED = ["cancelado", "rechazado"];
+  var STATE_AMBER = ["coordinado"];
+  var STATE_GREEN = ["pase en curso"];
+
+  function stateClass(value) {
+    var key = String(value || "").trim().toLowerCase();
+    if (STATE_RED.indexOf(key) !== -1) return "state--red";
+    if (STATE_AMBER.indexOf(key) !== -1) return "state--amber";
+    if (STATE_GREEN.indexOf(key) !== -1) return "state--green";
+    return "";
+  }
+
   function windowLabel(row) {
     var ini = window.Drawer ? window.Drawer.formatDate(row.fec_hora_ini_impl) : row.fec_hora_ini_impl;
     var fin = window.Drawer ? window.Drawer.formatDate(row.fec_hora_fin_impl) : row.fec_hora_fin_impl;
@@ -44,7 +58,7 @@
       meta.className = "meta";
       meta.textContent = row.tipo_cambio + " · " + windowLabel(row);
       var stateEl = document.createElement("span");
-      stateEl.className = "state";
+      stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
       btn.append(ticket, meta, stateEl);
       if (row._overlap === true || row._overlap === false) {

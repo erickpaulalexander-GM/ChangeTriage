@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Change Triage — Portal de Validación de Cambios</title>
   <link rel="stylesheet" href="assets/css/app.css">
+  <script src="assets/js/theme.js"></script>
   <script src="assets/js/drawer.js" defer></script>
   <script src="assets/js/search.js" defer></script>
+  <script src="assets/js/filters.js" defer></script>
   <script src="assets/js/export.js" defer></script>
   <script src="assets/js/app.js" defer></script>
 </head>
@@ -17,6 +19,8 @@
       <h1>Change Triage</h1>
       <p class="subtitle">Portal de Validación de Cambios en Producción</p>
     </div>
+    <button type="button" id="theme-toggle" class="theme-toggle"
+      aria-pressed="true" aria-label="Tema actual: oscuro. Cambiar a tema claro.">&#9789; Oscuro</button>
     <img class="logo" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
   </header>
 
@@ -28,15 +32,44 @@
         placeholder="Search ticket, app, recurso…"
         aria-label="Instant search across ticket, app, and recurso">
       <div class="filters">
-        <input id="f-ticket" type="text" autocomplete="off" placeholder="Ticket" aria-label="Ticket filter">
-        <input id="f-app" type="text" autocomplete="off" placeholder="App" aria-label="App filter">
-        <input id="f-tipo" type="text" autocomplete="off" placeholder="Tipo" aria-label="Tipo filter">
-        <input id="f-fecha" type="date" aria-label="Fecha filter (implementation start date)">
-        <input id="f-incident" type="datetime-local" aria-label="Incident datetime in Lima time">
+        <div class="combo" data-combo="ticket">
+          <input id="f-ticket" type="text" role="combobox" autocomplete="off"
+            placeholder="Ticket" aria-label="Ticket filter"
+            aria-expanded="false" aria-controls="f-ticket-list" aria-autocomplete="list">
+          <ul class="combo-list" id="f-ticket-list" role="listbox"
+            aria-label="Ticket suggestions" hidden></ul>
+        </div>
+        <div class="combo" data-combo="app">
+          <input id="f-app" type="text" role="combobox" autocomplete="off"
+            placeholder="App (Todas)" aria-label="App filter"
+            aria-expanded="false" aria-controls="f-app-list" aria-autocomplete="list">
+          <ul class="combo-list" id="f-app-list" role="listbox"
+            aria-label="App suggestions" hidden></ul>
+        </div>
+        <select id="f-tipo" aria-label="Tipo filter">
+          <option value="">Tipo (Todos)</option>
+        </select>
+        <div class="window-group" role="group" aria-label="Implementation window filter in Lima time">
+          <div class="window-block">
+            <span class="window-label" id="f-desde-label">Fec. Hora. Ini. Impl (Desde)</span>
+            <div class="window-inputs" role="group" aria-labelledby="f-desde-label">
+              <input id="f-desde-date" type="date" aria-label="Implementation window start date (Desde) in Lima time">
+              <input id="f-desde-time" type="time" aria-label="Implementation window start time (Desde) in Lima time">
+            </div>
+          </div>
+          <div class="window-block">
+            <span class="window-label" id="f-hasta-label">Fec. Hora. Fin. Impl (Hasta)</span>
+            <div class="window-inputs" role="group" aria-labelledby="f-hasta-label">
+              <input id="f-hasta-date" type="date" aria-label="Implementation window end date (Hasta) in Lima time">
+              <input id="f-hasta-time" type="time" aria-label="Implementation window end time (Hasta) in Lima time">
+            </div>
+          </div>
+        </div>
       </div>
       <div class="actions">
         <button type="button" id="export-csv">Export CSV</button>
         <button type="button" id="export-teams">Copy Teams summary</button>
+        <button type="button" id="clear-filters" class="linklike">Limpiar filtros</button>
       </div>
       <textarea class="fallback" id="teams-fallback" rows="6" readonly hidden
         aria-label="Teams summary fallback for manual copy"></textarea>
