@@ -1,0 +1,18 @@
+# Production data and generated artefacts (never commit rows or caches).
+# Directory contents are ignored; .gitkeep files preserve the structure.
+*.xlsx
+workspace/input/*
+!workspace/input/.gitkeep
+workspace/cache/*
+!workspace/cache/.gitkeep
+workspace/logs/*
+!workspace/logs/.gitkeep
+workspace/output/data.json
+workspace/output/data/*
+!workspace/output/data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/

@@ -1,0 +1,17 @@
+environment: DEV
+
+paths:
+  input_dir: workspace/input
+  output_dir: workspace/output
+  data_file: workspace/output/data.json
+  bundle_dir: workspace/output/data
+  logs_dir: workspace/logs
+  cache_dir: workspace/cache
+
+excel:
+  pattern: "ControlPases*.xlsx"
+  sheet: "Hoja1"
+
+app:
+  name: "Change Triage"
+  timezone: "America/Lima"
