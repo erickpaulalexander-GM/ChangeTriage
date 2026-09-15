@@ -6,6 +6,7 @@
   <title>Change Triage — Portal de Validación de Cambios</title>
   <link rel="stylesheet" href="assets/css/app.css">
   <script src="assets/js/drawer.js" defer></script>
+  <script src="assets/js/search.js" defer></script>
   <script src="assets/js/app.js" defer></script>
 </head>
 <body>
@@ -20,6 +21,20 @@
 
   <main id="main">
     <p class="status" id="status" role="status" aria-live="polite">Loading change data…</p>
+
+    <section class="toolbar" aria-label="Search, filter, and export">
+      <input class="search" id="q" type="search" autocomplete="off"
+        placeholder="Search ticket, app, recurso…"
+        aria-label="Instant search across ticket, app, and recurso">
+      <div class="filters">
+        <input id="f-ticket" type="text" autocomplete="off" placeholder="Ticket" aria-label="Ticket filter">
+        <input id="f-app" type="text" autocomplete="off" placeholder="App" aria-label="App filter">
+        <input id="f-tipo" type="text" autocomplete="off" placeholder="Tipo" aria-label="Tipo filter">
+        <input id="f-fecha" type="date" aria-label="Fecha filter (implementation start date)">
+        <input id="f-incident" type="datetime-local" aria-label="Incident datetime in Lima time">
+      </div>
+    </section>
+
     <ul class="results" id="results" aria-label="Change results"></ul>
 
     <section class="empty" id="empty" hidden>

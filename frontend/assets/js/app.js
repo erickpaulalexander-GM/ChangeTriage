@@ -1,6 +1,7 @@
 /* Change Triage list view: loads data.json (relative paths only, never the
  * Excel workbook) and renders the results list with empty-state + reset.
- * Search, overlap flags, and exports arrive in Phase 3 (search.js/export.js).
+ * Search, overlap flags, and exports plug in via search.js/export.js through
+ * the window.Triage hookup surface ({ render, getRows, getVisible }).
  */
 "use strict";
 
@@ -25,8 +26,9 @@
     return ini + " → " + fin;
   }
 
-  function renderList(rows) {
+  function renderList(rows, options) {
     state.visible = rows;
+    var total = options && typeof options.total === "number" ? options.total : rows.length;
     els.results.innerHTML = "";
     rows.forEach(function (row, index) {
       var item = document.createElement("li");
@@ -45,6 +47,12 @@
       stateEl.className = "state";
       stateEl.textContent = row.estado_actual;
       btn.append(ticket, meta, stateEl);
+      if (row._overlap === true || row._overlap === false) {
+        var flag = document.createElement("span");
+        flag.className = row._overlap ? "overlap" : "overlap-no";
+        flag.textContent = row._overlap ? "incident overlap" : "no overlap";
+        btn.append(flag);
+      }
       btn.addEventListener("click", function () {
         window.Drawer.open(row, btn);
       });
@@ -54,9 +62,14 @@
     var empty = rows.length === 0;
     els.empty.hidden = !empty;
     els.results.hidden = empty;
+    if (options && typeof options.total === "number" && total !== rows.length) {
+      setStatus(rows.length + " of " + total + " changes shown");
+    }
   }
 
   function reset() {
+    if (window.TriageSearch) window.TriageSearch.resetFilters();
+    state.rows.forEach(function (row) { row._overlap = null; });
     renderList(state.rows);
     setStatus(state.rows.length + " changes loaded");
     els.status.setAttribute("tabindex", "-1");
@@ -86,7 +99,8 @@
       // Counts only — never log row values (production-data caution).
       console.info("[triage] data.json loaded: count=" + state.rows.length);
       setStatus(state.rows.length + " changes loaded");
-      renderList(state.rows);
+      if (window.TriageSearch) window.TriageSearch.refresh();
+      else renderList(state.rows);
     }).catch(function (err) {
       console.error("[triage] data.json load failed: " + err.message);
       setStatus("Could not load change data. Re-run the pipeline to publish data.json.");
@@ -94,7 +108,13 @@
     });
   }
 
-  window.Triage = { reset: reset, state: state };
+  window.Triage = {
+    reset: reset,
+    render: renderList,
+    getRows: function () { return state.rows; },
+    getVisible: function () { return state.visible; },
+    state: state,
+  };
   if (document.readyState !== "loading") load();
   else document.addEventListener("DOMContentLoaded", load);
 })();
