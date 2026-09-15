@@ -9,6 +9,7 @@ workspace/logs/*
 !workspace/logs/.gitkeep
 workspace/output/data.json
 workspace/output/data/*
+workspace/output/triage.html
 !workspace/output/data/.gitkeep
 
 # Python
