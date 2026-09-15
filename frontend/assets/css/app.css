@@ -67,6 +67,28 @@ main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.5rem;
 }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.actions button {
+  background: var(--primary);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-button);
+  padding: 0.55rem 1.1rem;
+  font: inherit;
+  cursor: pointer;
+}
+.actions button + button { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.fallback {
+  width: 100%;
+  background: var(--surface-alt);
+  color: var(--text);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-input);
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
 .row .overlap, .row .overlap-no {
   display: inline-block;
   margin-top: 0.4rem;

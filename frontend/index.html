@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/css/app.css">
   <script src="assets/js/drawer.js" defer></script>
   <script src="assets/js/search.js" defer></script>
+  <script src="assets/js/export.js" defer></script>
   <script src="assets/js/app.js" defer></script>
 </head>
 <body>
@@ -33,6 +34,12 @@
         <input id="f-fecha" type="date" aria-label="Fecha filter (implementation start date)">
         <input id="f-incident" type="datetime-local" aria-label="Incident datetime in Lima time">
       </div>
+      <div class="actions">
+        <button type="button" id="export-csv">Export CSV</button>
+        <button type="button" id="export-teams">Copy Teams summary</button>
+      </div>
+      <textarea class="fallback" id="teams-fallback" rows="6" readonly hidden
+        aria-label="Teams summary fallback for manual copy"></textarea>
     </section>
 
     <ul class="results" id="results" aria-label="Change results"></ul>
