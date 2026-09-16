@@ -1,4 +1,5 @@
-/* Change Triage search: instant Ticket/App/Recurso substring, field filters,
+/* Change Triage search: instant global substring across all row fields,
+ * field filters, and implementation-window (Desde/Hasta) overlap mode.
  * and implementation-window (Desde/Hasta) overlap mode. Filters feed the
  * list through the window.Triage hookup surface — no list rendering logic
  * is duplicated here.
@@ -22,14 +23,25 @@ window.TriageSearch = (function () {
     return norm(field).indexOf(needle) !== -1;
   }
 
-  // Instant search: one substring matched against Ticket, App, and Recurso.
+  // Instant search: one substring matched against every meaningful row
+  // field (all HEADER_MAP columns: ticket, app, recurso, description,
+  // tribu, squad, dates, contacts, etc.). Runtime-only underscore keys
+  // (e.g. row._overlap) are skipped. Case-insensitive; null/undefined,
+  // numbers, and dates flow safely through norm()/contains. Empty query
+  // means no filter. Trivial cost at ~457 rows x ~34 fields per keystroke,
+  // so no debounce is needed.
   function matchesQuery(row, q) {
     if (!q) return true;
     var needle = q.trim().toLowerCase();
     if (!needle) return true;
-    return contains(row.ticket, needle)
-      || contains(row.nombre_app, needle)
-      || contains(row.recurso, needle);
+    if (!row || typeof row !== "object") return false;
+    var keys = Object.keys(row);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      if (key.charAt(0) === "_") continue;
+      if (contains(row[key], needle)) return true;
+    }
+    return false;
   }
 
   // Normalizes a data.json datetime (full Lima ISO with offset, or a bare
@@ -91,6 +103,22 @@ window.TriageSearch = (function () {
     return el && typeof el.value === "string" ? el.value : "";
   }
 
+  // T4 visual-only 00:00/23:59 hint: toggles data-empty on the .time-wrap so
+  // CSS shows the assumed bound while the input VALUE stays "" (vacío = día
+  // completo in parseWindowBound). Never writes a value — filters untouched.
+  function syncTimeHints() {
+    ["f-desde-time", "f-hasta-time"].forEach(function (id) {
+      var input = document.getElementById(id);
+      if (!input) return;
+      var wrap = null;
+      if (input.closest) wrap = input.closest(".time-wrap");
+      if (!wrap && input.parentNode) wrap = input.parentNode;
+      if (!wrap || !wrap.setAttribute) return;
+      if (!input.value) wrap.setAttribute("data-empty", "true");
+      else wrap.removeAttribute("data-empty");
+    });
+  }
+
   function getCriteria() {
     return {
       q: val("q"),
@@ -125,11 +153,13 @@ window.TriageSearch = (function () {
       var el = document.getElementById(id);
       if (el) el.value = "";
     });
+    syncTimeHints();
   }
 
   // Re-applies the current criteria (e.g. right after data.json loads).
   function refresh() {
     applyFilters();
+    syncTimeHints();
   }
 
   function init() {
@@ -138,8 +168,19 @@ window.TriageSearch = (function () {
     });
     // #f-tipo is a native <select> fed by filters.js: change (not input).
     ["f-tipo", "f-desde-date", "f-desde-time", "f-hasta-date", "f-hasta-time"].forEach(function (id) {
-      document.getElementById(id).addEventListener("change", applyFilters);
+      document.getElementById(id).addEventListener("change", function () {
+        syncTimeHints();
+        applyFilters();
+      });
     });
+    // Live hint toggle while typing a time (change fires only on commit).
+    ["f-desde-time", "f-hasta-time"].forEach(function (id) {
+      var input = document.getElementById(id);
+      if (input && input.addEventListener) {
+        input.addEventListener("input", syncTimeHints);
+      }
+    });
+    syncTimeHints();
     // Toolbar reset action: back to the empty initial state, then re-apply.
     var clear = document.getElementById("clear-filters");
     if (clear && clear.addEventListener) {
@@ -162,5 +203,6 @@ window.TriageSearch = (function () {
     parseWindowBound: parseWindowBound,
     matchesWindow: matchesWindow,
     toLimaWall: toLimaWall,
+    syncTimeHints: syncTimeHints,
   };
 })();
