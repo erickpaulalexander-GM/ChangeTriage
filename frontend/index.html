@@ -9,6 +9,8 @@
   <script src="assets/js/drawer.js" defer></script>
   <script src="assets/js/search.js" defer></script>
   <script src="assets/js/filters.js" defer></script>
+  <script src="assets/js/presets.js" defer></script>
+  <script src="assets/js/daypick.js" defer></script>
   <script src="assets/js/export.js" defer></script>
   <script src="assets/js/app.js" defer></script>
 </head>
@@ -25,12 +27,18 @@
   </header>
 
   <main id="main">
-    <p class="status" id="status" role="status" aria-live="polite">Loading change data…</p>
+    <div class="opbar" id="status" role="status" aria-live="polite">
+      <span class="opbar-item" id="op-count">📦 Cargando cambios…</span>
+      <span class="opbar-sep" aria-hidden="true">|</span>
+      <span class="opbar-item" id="op-updated">🕒 Actualizado: —</span>
+      <span class="opbar-sep" aria-hidden="true">|</span>
+      <span class="opbar-item" id="op-range">📅 Disponible: —</span>
+    </div>
 
     <section class="toolbar" aria-label="Search, filter, and export">
       <input class="search" id="q" type="search" autocomplete="off"
-        placeholder="Search ticket, app, recurso…"
-        aria-label="Instant search across ticket, app, and recurso">
+        placeholder="Search everything…"
+        aria-label="Instant search across all fields">
       <div class="filters">
         <div class="combo" data-combo="ticket">
           <input id="f-ticket" type="text" role="combobox" autocomplete="off"
@@ -46,23 +54,46 @@
           <ul class="combo-list" id="f-app-list" role="listbox"
             aria-label="App suggestions" hidden></ul>
         </div>
-        <select id="f-tipo" aria-label="Tipo filter">
-          <option value="">Tipo (Todos)</option>
+        <select id="f-tipo" aria-label="TIPO CAMBIO filter">
+          <option value="">TIPO CAMBIO</option>
         </select>
-        <div class="window-group" role="group" aria-label="Implementation window filter in Lima time">
-          <div class="window-block">
-            <span class="window-label" id="f-desde-label">Fec. Hora. Ini. Impl (Desde)</span>
+        <div class="window-group" role="group" aria-label="Ventana de implementación (hora de Lima)">
+          <span class="window-title sr-only">Ventana de implementación</span>
+          <div class="window-block" data-window="desde">
+            <span class="window-label sr-only" id="f-desde-label">Desde implementación</span>
             <div class="window-inputs" role="group" aria-labelledby="f-desde-label">
-              <input id="f-desde-date" type="date" aria-label="Implementation window start date (Desde) in Lima time">
-              <input id="f-desde-time" type="time" aria-label="Implementation window start time (Desde) in Lima time">
+              <span class="window-sep" aria-hidden="true">Desde</span>
+              <div class="daypick" data-daypick="desde">
+                <input id="f-desde-date" type="hidden" value="">
+                <button type="button" class="daypick-btn" id="f-desde-day"
+                  aria-haspopup="listbox" aria-expanded="false" aria-controls="f-desde-day-list"
+                  aria-label="Desde implementación: día (hora de Lima)"><span class="daypick-icon" aria-hidden="true">📅</span><span class="daypick-text">Seleccionar día</span><span class="daypick-chev" aria-hidden="true">▾</span></button>
+                <ul class="daypick-list" id="f-desde-day-list" role="listbox"
+                  aria-label="Seleccionar día de inicio" hidden></ul>
+              </div>
+              <span class="time-wrap" data-hint="00:00"><input id="f-desde-time" type="time" step="1800" placeholder="Desde 00:00" aria-label="Desde implementación: hora (hora de Lima)" title="Vacía = día completo desde las 00:00"></span>
             </div>
           </div>
-          <div class="window-block">
-            <span class="window-label" id="f-hasta-label">Fec. Hora. Fin. Impl (Hasta)</span>
+          <div class="window-block" data-window="hasta">
+            <span class="window-label sr-only" id="f-hasta-label">Hasta implementación</span>
             <div class="window-inputs" role="group" aria-labelledby="f-hasta-label">
-              <input id="f-hasta-date" type="date" aria-label="Implementation window end date (Hasta) in Lima time">
-              <input id="f-hasta-time" type="time" aria-label="Implementation window end time (Hasta) in Lima time">
+              <span class="window-sep" aria-hidden="true">Hasta</span>
+              <div class="daypick" data-daypick="hasta">
+                <input id="f-hasta-date" type="hidden" value="">
+                <button type="button" class="daypick-btn" id="f-hasta-day"
+                  aria-haspopup="listbox" aria-expanded="false" aria-controls="f-hasta-day-list"
+                  aria-label="Hasta implementación: día (hora de Lima)"><span class="daypick-icon" aria-hidden="true">📅</span><span class="daypick-text">Seleccionar día</span><span class="daypick-chev" aria-hidden="true">▾</span></button>
+                <ul class="daypick-list" id="f-hasta-day-list" role="listbox"
+                  aria-label="Seleccionar día de fin" hidden></ul>
+              </div>
+              <span class="time-wrap" data-hint="23:59"><input id="f-hasta-time" type="time" step="1800" placeholder="Hasta 23:59" aria-label="Hasta implementación: hora (hora de Lima)" title="Vacía = día completo hasta las 23:59"></span>
             </div>
+          </div>
+          <div class="presets" role="group" aria-label="Rango rápido de implementación">
+            <span class="presets-label">Rango rápido:</span>
+            <button type="button" data-preset="today">Hoy</button>
+            <button type="button" data-preset="yesterday">Ayer</button>
+            <button type="button" data-preset="all">Toda la ventana</button>
           </div>
         </div>
       </div>

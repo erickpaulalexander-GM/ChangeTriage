@@ -85,7 +85,7 @@ window.TriageFilters = (function () {
   }
 
   // Rebuilds option state from the current rows + repopulates the tipo
-  // <select> (keeping the "Todos" default first and preserving selection).
+  // <select> (keeping the "TIPO CAMBIO" default first and preserving selection).
   function refreshOptions() {
     state = deriveOptions(getRows());
     populateTipo();
@@ -101,7 +101,7 @@ window.TriageFilters = (function () {
     var doc = document;
     var all = doc.createElement("option");
     all.value = "";
-    all.textContent = "Tipo (Todos)";
+    all.textContent = "TIPO CAMBIO";
     select.appendChild(all);
     state.tipos.forEach(function (tipo) {
       var opt = doc.createElement("option");

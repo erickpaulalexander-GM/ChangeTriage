@@ -89,6 +89,20 @@ body {
 main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
 .status { color: var(--muted); }
 
+/* Operational header bar: one compact row of three live indicators
+ * (count | updated | range). Wraps on narrow screens, no layout shift. */
+.opbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.opbar-item { white-space: nowrap; }
+.opbar-sep { opacity: 0.45; }
+
 .toolbar {
   margin-top: 1rem;
   background: var(--surface);
@@ -119,9 +133,9 @@ main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
 .search { width: 100%; }
 .filters {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 2fr;
+  grid-template-columns: 1fr 1fr 0.7fr 2.9fr;
   gap: 0.5rem;
-  align-items: stretch;
+  align-items: start;
 }
 @media (max-width: 1100px) {
   .filters { grid-template-columns: 1fr 1fr; }
@@ -135,6 +149,14 @@ main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
  * result cards and the drawer without shifting layout or overflowing. */
 .combo { position: relative; min-width: 0; }
 .combo input { width: 100%; }
+/* Tipo select fills its column: .filters uses align-items: start so Ticket,
+ * App, Tipo and the compact window bar share the top baseline in one ~43px
+ * desktop row. The former align-self: start patch is redundant now that the
+ * container aligns every item; only width: 100% is kept so the native
+ * <select> spans its full column. */
+#f-tipo {
+  width: 100%;
+}
 .combo-list {
   position: absolute;
   top: calc(100% + 4px);
@@ -167,47 +189,245 @@ html[data-theme="light"] .combo-list { box-shadow: 0 8px 24px rgba(23, 32, 51, 0
 .combo-option[aria-selected="true"] { outline: 1px solid var(--primary); }
 .combo-empty { color: var(--muted); cursor: default; }
 
-/* Implementation-window filter: two related date/time blocks grouped as one
- * visual unit (same box language as the other filters, Light/Dark via vars
- * only). Flex-wrap keeps date+time side by side with no horizontal overflow. */
-.window-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  min-width: 0;
+/* Implementation-window filter: single compact temporal bar (T2, T8). One
+ * principal container (.window-group) holds Desde + Hasta side by side in a
+ * single grid row (1fr 1fr) with presets as an integrated full-width second
+ * row — 2 rows total (~120px vs ~170px before, when the two .window-block
+ * halves stacked). The old triple box layer (group > card > button/input
+ * boxes) is gone: blocks and input wrappers are borderless layout groupings,
+ * the only bordered box is .window-group. Visible labels moved to sr-only
+ * (role/aria kept in markup); short aria-hidden .window-sep markers keep the
+ * row scannable. Light/Dark via vars only. */
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
-.window-block {
-  flex: 1 1 0;
+.window-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.25rem 0.5rem;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  max-width: 100%;
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius-input);
-  padding: 0.4rem 0.6rem;
+  padding: 0.25rem 0.5rem;
 }
-.window-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
+.window-group:focus-within {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--tint-warning);
 }
+.window-block {
+  min-width: 0;
+  display: flex;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+/* Kept for compatibility: the visible ring now lives on .window-group
+ * (equivalent single-container focus), blocks keep a neutral rule. */
+.window-block:focus-within {
+  outline: none;
+}
+/* Whole-row click opens the day dropdown: pointer affordance kept on the
+ * layout grouping, native cursor kept on the time input itself. */
+.window-block { cursor: pointer; }
+.window-block input[type="time"] { cursor: auto; }
 .window-inputs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .window-inputs input {
   flex: 1 1 0;
   min-width: 0;
   max-width: 100%;
 }
-.window-block:focus-within {
-  outline: none;
+.window-inputs input[type="time"] {
+  padding: 0.25rem 0.5rem;
+}
+/* Compact visible range markers (aria-hidden in markup; accessible names
+ * stay on the sr-only labels + input aria-labels). */
+.window-sep {
+  flex: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+/* Available-days dropdown + time input: the .daypick button mimics the
+ * toolbar input look (Light/Dark via vars only) and its option list floats
+ * like the ticket/app suggestion lists — compact on desktop (matches the
+ * button width), full-width on mobile with the stacked card. Time inputs
+ * carry no emoji chip: the native picker indicator is the single clock icon.
+ * The selected day shows a checkmark via the .tick span. */
+.window-inputs .daypick {
+  position: relative;
+  flex: 1 1 120px;
+  min-width: 120px;
+}
+.window-inputs .time-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 88px;
+  min-width: 80px;
+}
+.window-inputs .time-wrap input[type="time"] {
+  width: 100%;
+}
+/* T4 visual-only 00:00/23:59 hint: the input value stays EMPTY (vacío = día
+ * completo via parseWindowBound) while the wrapper overlay shows the assumed
+ * bound in muted text. Pseudo-element only — never exposed to AT, input
+ * aria-label/title carry the semantics. Hidden on focus so the native --:--
+ * editor is visible while typing; pointer-events none so clicks reach input. */
+.time-wrap[data-empty="true"]::after {
+  content: attr(data-hint);
+  position: absolute;
+  top: 50%;
+  left: 0.5rem;
+  right: 1.9rem;
+  transform: translateY(-50%);
+  background: var(--surface-alt);
+  color: var(--muted);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+.time-wrap[data-empty="true"]:focus-within::after {
+  opacity: 0;
+}
+.daypick-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+html[data-theme="light"] .daypick-btn { background: var(--surface); }
+.daypick-btn:hover { border-color: var(--primary); }
+.daypick-btn:focus-visible {
   border-color: var(--primary);
+  outline: none;
   box-shadow: 0 0 0 2px var(--tint-warning);
+}
+.daypick-icon { flex: none; font-size: 0.85rem; }
+.daypick-text { flex: 1 1 auto; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.daypick-chev { flex: none; color: var(--muted); font-size: 0.8rem; }
+.daypick-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: 0;
+  max-width: 100%;
+  z-index: 60;
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-card);
+}
+html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51, 0.16); }
+.daypick-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.daypick-option:hover, .daypick-option.active {
+  background: var(--tint-warning);
+  outline: 1px solid var(--primary);
+}
+.daypick-option[aria-selected="true"] { outline: 1px solid var(--primary); }
+.daypick-option .tick { margin-left: auto; flex: none; color: var(--success); font-weight: 700; }
+/* Quick-range presets live inside the window module as an integrated compact
+ * second grid row (grid-column 1 / -1, border-top separator kept). Narrow
+ * screens keep the two range halves side by side at 1100px (window spans the
+ * full filter row there) and stack them full-width at 640px; dropdowns shrink
+ * with min-width: 0 so nothing scrolls horizontally. */
+.window-group .presets {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--border);
+  padding-top: 0.25rem;
+  margin-top: 0;
+}
+@media (max-width: 1100px) {
+  .window-group { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .window-group { grid-template-columns: minmax(0, 1fr); }
+  .window-inputs { flex-wrap: wrap; }
+  .window-inputs .daypick { flex: 1 1 100%; min-width: 0; }
+  .window-inputs .time-wrap { flex: 1 1 100%; min-width: 0; }
+  .daypick-list { min-width: 0; }
+}
+/* Quick-range presets: "Rango rápido:" row under the filters. Pill buttons
+ * reuse the toolbar palette; the active preset uses the warning tint.
+ * T5 compact: tightened gaps/padding/type so the row reads as one integrated
+ * strip inside the module (border-top above stays the separator). Vars only;
+ * focus ring matches .daypick-btn; active state keys off aria-pressed. */
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.presets-label { font-weight: 600; font-size: 0.75rem; }
+.presets button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.presets button:hover, .presets button:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+}
+.presets button:focus-visible {
+  box-shadow: 0 0 0 2px var(--tint-warning);
+}
+.presets button[aria-pressed="true"] {
+  background: var(--tint-warning);
+  border-color: var(--primary);
+  font-weight: 600;
 }
 .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .actions button {

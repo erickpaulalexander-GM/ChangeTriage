@@ -88,8 +88,13 @@ window.TriageExport = (function () {
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
-        document.getElementById("status").textContent =
-          "Copied " + rows.length + " change summaries for Teams.";
+        // Operational header bar owns #status now: confirm in its count slot
+        // when present, else fall back to the legacy status element.
+        var statusEl = document.getElementById("op-count") || document.getElementById("status");
+        if (statusEl) {
+          statusEl.textContent =
+            "Copied " + rows.length + " change summaries for Teams.";
+        }
       }, function () {
         showFallback(text);
       });
