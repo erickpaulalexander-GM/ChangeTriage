@@ -44,7 +44,7 @@ if errorlevel 1 (
 REM 3. Bundle: inline css/js/img + data.json into workspace\output\triage.html
 REM    (stdlib only, so plain python; works from the SharePoint library and file://).
 echo [2/4] Building single-file bundle...
-python backend\bundle_single.py
+uv run python backend\bundle_single.py
 if errorlevel 1 (
   echo [ERROR] Bundle failed. See output above.
   goto :fail

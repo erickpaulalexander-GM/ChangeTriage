@@ -16,7 +16,7 @@ try:
     import openpyxl
 except ImportError as exc:  # pragma: no cover - environment guard
     raise SystemExit(
-        "openpyxl is required (install with: uv run --with openpyxl ...)"
+        "openpyxl is required (install with: uv run --with openpyxl --with tzdata ...)"
     ) from exc
 
 # Normalized header (whitespace-collapsed, uppercased) -> canonical snake_case key.
