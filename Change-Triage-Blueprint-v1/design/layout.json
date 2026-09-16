@@ -1,0 +1,22 @@
+{
+  "pages": [
+    "home",
+    "detail",
+    "incident"
+  ],
+  "home": [
+    "header",
+    "search",
+    "filters",
+    "stats",
+    "results"
+  ],
+  "detail": [
+    "summary",
+    "implementation",
+    "rollback",
+    "impact",
+    "contacts",
+    "governance"
+  ]
+}

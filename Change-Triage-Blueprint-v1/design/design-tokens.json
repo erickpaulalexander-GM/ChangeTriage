@@ -1,0 +1,21 @@
+{
+  "theme": "dark",
+  "colors": {
+    "background": "#0F172A",
+    "surface": "#1E293B",
+    "surfaceAlt": "#111827",
+    "border": "#334155",
+    "primary": "#2563EB",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444",
+    "text": "#F8FAFC",
+    "muted": "#94A3B8"
+  },
+  "radius": {
+    "card": 20,
+    "input": 12,
+    "button": 12
+  },
+  "font": "Inter"
+}
