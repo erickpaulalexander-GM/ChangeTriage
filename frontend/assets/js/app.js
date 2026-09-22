@@ -155,6 +155,47 @@
     return ini + " → " + fin;
   }
 
+  // Channel chips (canales): squad vs ratificar token lists ("APIG",
+  // "TPWL, MBBK", newline-separated in the workbook). Most rows carry
+  // identical lists, so one "Canales" line covers both; a second
+  // "Ratificar" line appears only when the lists differ. Empty lists
+  // render nothing, leaving the compact card height untouched. Visible
+  // chips cap at 4 with a "+N" overflow chip; the full list stays in
+  // the title tooltip.
+  var CANALES_MAX = 4;
+
+  function channelTokens(value) {
+    var seen = {}, out = [];
+    String(value == null ? "" : value).split(/[,;\n]+/).forEach(function (t) {
+      var token = t.trim();
+      if (token && !seen[token]) { seen[token] = true; out.push(token); }
+    });
+    return out;
+  }
+
+  function channelLine(label, tokens, full) {
+    var line = document.createElement("div");
+    line.className = "canales";
+    var name = document.createElement("span");
+    name.className = "canales-label";
+    name.textContent = label;
+    line.append(name);
+    tokens.slice(0, CANALES_MAX).forEach(function (token) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = token;
+      line.append(chip);
+    });
+    if (tokens.length > CANALES_MAX) {
+      var more = document.createElement("span");
+      more.className = "chip chip-more";
+      more.textContent = "+" + (tokens.length - CANALES_MAX);
+      line.append(more);
+    }
+    line.title = full;
+    return line;
+  }
+
   function renderList(rows, options) {
     state.visible = rows;
     els.results.innerHTML = "";
@@ -179,7 +220,20 @@
       var stateEl = document.createElement("span");
       stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
-      btn.append(ticket, meta, stateEl);
+      btn.append(ticket, meta);
+      // Channel capsules: omitted when both lists are empty so the card
+      // keeps its two-line compact shape on rows without channel data.
+      var squad = channelTokens(row.canales_app_impactadas_segun_squad);
+      var ratif = channelTokens(row.canales_app_a_ratificar);
+      if (squad.length) {
+        btn.append(channelLine("Canales", squad,
+          String(row.canales_app_impactadas_segun_squad).trim()));
+      }
+      if (ratif.length && ratif.join("\n") !== squad.join("\n")) {
+        btn.append(channelLine("Ratificar", ratif,
+          String(row.canales_app_a_ratificar).trim()));
+      }
+      btn.append(stateEl);
       if (row._overlap === true || row._overlap === false) {
         var flag = document.createElement("span");
         flag.className = row._overlap ? "overlap" : "overlap-no";
