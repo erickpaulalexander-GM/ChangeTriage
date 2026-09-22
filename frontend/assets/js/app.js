@@ -225,10 +225,10 @@
       var stateEl = document.createElement("span");
       stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
-      // Three-column card: main (ticket + meta) | squad group | side
-      // column (state badge + ratificar group). Channel groups render
-      // only when they carry data; rows without channel data keep the
-      // plain two-line compact shape.
+      // Three-column card: main (ticket + meta) | squad group |
+      // ratificar group, all top-aligned, with the state badge pinned
+      // top-right. Channel groups render only when they carry data; rows
+      // without channel data keep the plain compact shape.
       var main = document.createElement("div");
       main.className = "row-main";
       main.append(ticket, meta);
@@ -239,14 +239,11 @@
         btn.append(canalGroup("CANALES APP IMPACTADAS SEGÚN SQUAD", squad,
           String(row.canales_app_impactadas_segun_squad).trim()));
       }
-      var side = document.createElement("div");
-      side.className = "row-side";
-      side.append(stateEl);
       if (ratif.length) {
-        side.append(canalGroup("CANALES APP A RATIFICAR", ratif,
+        btn.append(canalGroup("CANALES APP A RATIFICAR", ratif,
           String(row.canales_app_a_ratificar).trim()));
       }
-      btn.append(side);
+      btn.append(stateEl);
       if (row._overlap === true || row._overlap === false) {
         var flag = document.createElement("span");
         flag.className = row._overlap ? "overlap" : "overlap-no";
