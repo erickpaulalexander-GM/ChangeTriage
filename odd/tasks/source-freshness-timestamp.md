@@ -65,4 +65,4 @@ Implementation authorized by explicit user request. Local only: no remote mutati
 - `workspace/output/triage.html`: contains TRIAGE_DATA with source_modified_at + inlined fmtUpdated.
 
 ## Next step
-- Work-unit commit S3+S4 close-out on feature branch (user decision on push/PR under ordinary policy).
+- Backend unit committed as `60e574d` on `chore/triage-single-file`. Frontend S3 code (app.js header slots) rides on compact-layout C1 + index.html/css — stays uncommitted as its own unit with its ODD docs.
