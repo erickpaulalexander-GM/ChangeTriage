@@ -702,8 +702,8 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
   .row .state { grid-column: 2; grid-row: 1; }
 }
 .row:hover, .row:focus-visible { border-color: var(--primary); outline: none; }
-.row .ticket { font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.row .meta { color: var(--muted); font-size: 0.75rem; margin-top: 0.18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .ticket { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .meta { color: var(--muted); font-size: 0.7rem; margin-top: 0.18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .canal-group { min-width: 0; max-width: 24rem; }
 .row .canales-label { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .canal-chips { display: flex; flex-wrap: wrap; gap: 0.22rem; margin-top: 0.14rem; }
