@@ -209,6 +209,11 @@
       btn.className = "row";
       btn.dataset.index = String(index);
       btn.innerHTML = "";
+      // Out-of-jurisdiction signal: recurso automatizado rows get the
+      // pastel wash (matches AUTOMATIZADO and AUTOMATIZADO ITSM).
+      var recursoRaw = row.recurso === null || row.recurso === undefined
+        ? "" : String(row.recurso);
+      if (/automatizado/i.test(recursoRaw)) btn.classList.add("is-auto");
       var ticket = document.createElement("span");
       ticket.className = "ticket";
       ticket.textContent = row.ticket + " — " + row.nombre_app;
@@ -217,8 +222,7 @@
       meta.className = "meta";
       // Recurso visible en tarjeta (AUTOMATIZADO, INFRAESTRUCTURA, YAPE…):
       // identifica de un vistazo el origen del cambio. Se omite si vacío.
-      var recurso = row.recurso === null || row.recurso === undefined
-        ? "" : String(row.recurso).trim();
+      var recurso = recursoRaw.trim();
       meta.textContent = row.tipo_cambio + " · " + windowLabel(row)
         + (recurso ? " · " + recurso : "");
       meta.title = meta.textContent;

@@ -16,6 +16,8 @@
   --tint-success: rgba(76, 195, 138, 0.14);
   --tint-warning: rgba(232, 179, 75, 0.14);
   --tint-danger: rgba(232, 138, 128, 0.14);
+  --tint-auto: rgba(150, 133, 211, 0.16);
+  --auto-accent: #9685D3;
   --shadow-drawer: none;
   --shadow-card: none;
   --radius-card: 20px;
@@ -39,6 +41,8 @@ html[data-theme="light"] {
   --tint-success: #E3F4EC;
   --tint-warning: #FDF1D7;
   --tint-danger: #FDE8E6;
+  --tint-auto: #ECE7FB;
+  --auto-accent: #7C6BC4;
   --shadow-drawer: -12px 0 32px rgba(23, 32, 51, 0.10);
   --shadow-card: 0 1px 2px rgba(23, 32, 51, 0.05);
 }
@@ -702,6 +706,10 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
   .row .state { grid-column: 2; grid-row: 1; }
 }
 .row:hover, .row:focus-visible { border-color: var(--primary); outline: none; }
+/* Out-of-jurisdiction rows (recurso automatizado): pastel lavender wash
+ * plus a dotted left edge, in both themes. Instant "not our incident"
+ * signal when a search surfaces one. */
+.row.is-auto { background: var(--tint-auto); border-left: 3px dotted var(--auto-accent); }
 .row .ticket { font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .meta { color: var(--muted); font-size: 0.7rem; margin-top: 0.18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .canal-group { min-width: 0; max-width: 24rem; }
