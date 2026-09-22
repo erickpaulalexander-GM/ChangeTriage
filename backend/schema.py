@@ -2,14 +2,16 @@
 
 Contract: ``{generated_at, count, rows[]}`` where row keys are the
 canonical snake_case headers, dates are Lima ISO-8601 (or null), and
-nulls are preserved. Nothing here logs row values.
+nulls are preserved. Optional ``source_file`` / ``source_modified_at``
+describe the workbook the data came from; ``generated_at`` stays the
+build (run) timestamp. Nothing here logs row values.
 """
 
 from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .normalizador import DATE_COLUMNS, LIMA_TZ
@@ -46,13 +48,28 @@ def validate_rows(rows: list[dict[str, object]]) -> None:
                 )
 
 
-def build_payload(rows: list[dict[str, object]]) -> dict[str, object]:
+def _to_lima_iso(value: datetime) -> str:
+    """Serialize a datetime as Lima ISO-8601, assuming UTC when naive."""
+    aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return aware.astimezone(LIMA_TZ).isoformat()
+
+
+def build_payload(
+    rows: list[dict[str, object]],
+    source_file: str | None = None,
+    source_modified_at: datetime | None = None,
+) -> dict[str, object]:
     validate_rows(rows)
-    return {
+    payload: dict[str, object] = {
         "generated_at": datetime.now(tz=LIMA_TZ).isoformat(),
         "count": len(rows),
         "rows": rows,
     }
+    if source_file is not None:
+        payload["source_file"] = source_file
+    if source_modified_at is not None:
+        payload["source_modified_at"] = _to_lima_iso(source_modified_at)
+    return payload
 
 
 def write_payload(payload: dict[str, object], path: Path) -> None:

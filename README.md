@@ -11,7 +11,11 @@ exports from that JSON. No framework, no backend runtime.
 2. Run (dependencies resolve via uv; Python ships without them;
    `tzdata` supplies the IANA zone database on Windows, which has none):
    `uv run --with openpyxl --with tzdata python backend/generar_data.py`
-3. Output: `workspace/output/data.json` (`{generated_at, count, rows[]}`).
+3. Output: `workspace/output/data.json`
+   (`{generated_at, count, rows[], source_file?, source_modified_at?}`);
+   `source_modified_at` is the workbook's date (internal metadata, falling back
+   to file mtime). The SPA header shows that source date — the build time
+   (`generated_at`) lives in its tooltip.
    Dates are America/Lima ISO (`-05:00`); nulls are preserved.
    The run fails non-zero on header drift or bad dates and writes nothing.
 

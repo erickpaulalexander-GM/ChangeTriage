@@ -100,7 +100,11 @@ def run(settings: Settings) -> int:
     except json.JSONDecodeError as exc:
         return _fail(f"data.json is not valid JSON: {exc} (rows=0, output=none)")
     if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list):
-        return _fail("data.json contract violation: expected {generated_at, count, rows[]} (rows=0, output=none)")
+        return _fail(
+            "data.json contract violation: expected "
+            "{generated_at, count, rows[], source_file?, source_modified_at?} "
+            "(rows=0, output=none)"
+        )
     row_count = len(payload["rows"])
 
     css_count = js_count = img_count = 0
