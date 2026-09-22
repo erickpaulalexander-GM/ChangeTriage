@@ -694,6 +694,10 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
 .row:hover, .row:focus-visible { border-color: var(--primary); outline: none; }
 .row .ticket { font-weight: 700; }
 .row .meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.18rem; }
+.row .canales { display: flex; align-items: center; gap: 0.25rem; margin-top: 0.22rem; overflow: hidden; }
+.row .canales-label { color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+.row .chip { font-size: 0.72rem; line-height: 1.5; padding: 0 0.4rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); color: var(--text); white-space: nowrap; }
+.row .chip-more { color: var(--muted); border-style: dashed; }
 .row .state { float: right; margin-top: 0; background: var(--surface-alt); color: var(--muted); border-color: var(--border); }
 .row .state--red { background: var(--tint-danger); color: var(--danger); border-color: var(--danger); }
 .row .state--amber { background: var(--tint-warning); color: var(--warning); border-color: var(--warning); }
