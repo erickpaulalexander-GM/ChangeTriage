@@ -681,7 +681,7 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
 .row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0 1rem;
   align-items: start;
   text-align: left;
@@ -702,8 +702,8 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
   .row-side { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-end; }
 }
 .row:hover, .row:focus-visible { border-color: var(--primary); outline: none; }
-.row .ticket { font-weight: 700; }
-.row .meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.18rem; }
+.row .ticket { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.18rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .canal-group { min-width: 0; max-width: 24rem; }
 .row-side .canal-group { align-self: stretch; }
 .row .canales-label { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

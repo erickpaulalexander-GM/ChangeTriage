@@ -212,6 +212,7 @@
       var ticket = document.createElement("span");
       ticket.className = "ticket";
       ticket.textContent = row.ticket + " — " + row.nombre_app;
+      ticket.title = row.ticket + " — " + row.nombre_app;
       var meta = document.createElement("div");
       meta.className = "meta";
       // Recurso visible en tarjeta (AUTOMATIZADO, INFRAESTRUCTURA, YAPE…):
@@ -220,6 +221,7 @@
         ? "" : String(row.recurso).trim();
       meta.textContent = row.tipo_cambio + " · " + windowLabel(row)
         + (recurso ? " · " + recurso : "");
+      meta.title = meta.textContent;
       var stateEl = document.createElement("span");
       stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
