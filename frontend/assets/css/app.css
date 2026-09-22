@@ -680,7 +680,10 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
 .results { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
 .row {
   width: 100%;
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0 1rem;
+  align-items: start;
   text-align: left;
   background: var(--surface);
   color: var(--text);
@@ -691,11 +694,18 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
   cursor: pointer;
   box-shadow: var(--shadow-card);
 }
+.row-main { min-width: 0; }
+.row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.22rem; min-width: 0; }
+.row-side .state { margin-top: 0; }
+@media (max-width: 640px) {
+  .row { grid-template-columns: minmax(0, 1fr) auto; }
+  .row-side { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-end; }
+}
 .row:hover, .row:focus-visible { border-color: var(--primary); outline: none; }
 .row .ticket { font-weight: 700; }
 .row .meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.18rem; }
-.row .canales { display: flex; gap: 1rem; margin-top: 0.22rem; overflow: hidden; }
-.row .canal-group { flex: 1 1 0; min-width: 0; }
+.row .canal-group { min-width: 0; max-width: 24rem; }
+.row-side .canal-group { align-self: stretch; }
 .row .canales-label { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .canal-chips { display: flex; flex-wrap: wrap; gap: 0.22rem; margin-top: 0.14rem; }
 .row .chip { font-size: 0.72rem; line-height: 1.5; padding: 0 0.4rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-alt); color: var(--text); white-space: nowrap; }

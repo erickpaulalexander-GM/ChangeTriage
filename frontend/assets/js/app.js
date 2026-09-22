@@ -223,30 +223,33 @@
       var stateEl = document.createElement("span");
       stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
-      btn.append(ticket, meta);
-      // Channel capsules: omitted when both lists are empty so the card
-      // keeps its two-line compact shape on rows without channel data.
+      // Three-column card: main (ticket + meta) | squad group | side
+      // column (state badge + ratificar group). Channel groups render
+      // only when they carry data; rows without channel data keep the
+      // plain two-line compact shape.
+      var main = document.createElement("div");
+      main.className = "row-main";
+      main.append(ticket, meta);
+      btn.append(main);
       var squad = channelTokens(row.canales_app_impactadas_segun_squad);
       var ratif = channelTokens(row.canales_app_a_ratificar);
-      if (squad.length || ratif.length) {
-        var grid = document.createElement("div");
-        grid.className = "canales";
-        if (squad.length) {
-          grid.append(canalGroup("CANALES APP IMPACTADAS SEGÚN SQUAD", squad,
-            String(row.canales_app_impactadas_segun_squad).trim()));
-        }
-        if (ratif.length) {
-          grid.append(canalGroup("CANALES APP A RATIFICAR", ratif,
-            String(row.canales_app_a_ratificar).trim()));
-        }
-        btn.append(grid);
+      if (squad.length) {
+        btn.append(canalGroup("CANALES APP IMPACTADAS SEGÚN SQUAD", squad,
+          String(row.canales_app_impactadas_segun_squad).trim()));
       }
-      btn.append(stateEl);
+      var side = document.createElement("div");
+      side.className = "row-side";
+      side.append(stateEl);
+      if (ratif.length) {
+        side.append(canalGroup("CANALES APP A RATIFICAR", ratif,
+          String(row.canales_app_a_ratificar).trim()));
+      }
+      btn.append(side);
       if (row._overlap === true || row._overlap === false) {
         var flag = document.createElement("span");
         flag.className = row._overlap ? "overlap" : "overlap-no";
         flag.textContent = row._overlap ? "incident overlap" : "no overlap";
-        btn.append(flag);
+        main.append(flag);
       }
       btn.addEventListener("click", function () {
         window.Drawer.open(row, btn);
