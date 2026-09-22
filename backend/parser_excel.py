@@ -8,6 +8,7 @@ non-zero exit and no partial output is ever written.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from .utils import log_error, normalize_header
@@ -72,6 +73,10 @@ class HeaderDriftError(ValueError):
 class RawTable:
     columns: tuple[str, ...]
     rows: tuple[dict[str, object], ...]
+    # Workbook ``dcterms:modified`` core property, naive UTC as openpyxl
+    # exposes it. ``None`` when the metadata is absent or unreadable; the
+    # caller is responsible for the timezone tag and any fallback.
+    source_modified_utc: datetime | None = None
 
 
 def map_headers(raw_headers: list[object]) -> list[str]:
@@ -99,6 +104,20 @@ def map_headers(raw_headers: list[object]) -> list[str]:
     return canonical
 
 
+def _read_source_modified(workbook: object) -> datetime | None:
+    """Return the workbook's internal ``properties.modified`` (naive UTC).
+
+    openpyxl surfaces the ``dcterms:modified`` core property as a naive
+    datetime in UTC. Missing or malformed metadata yields ``None`` so the
+    caller can fall back to the filesystem mtime.
+    """
+    try:
+        modified = workbook.properties.modified
+    except Exception:  # pragma: no cover - openpyxl property guard
+        return None
+    return modified if isinstance(modified, datetime) else None
+
+
 def read_workbook(path: Path, sheet: str) -> RawTable:
     """Read rows keyed by canonical header; fail fast on drift."""
     workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
@@ -107,6 +126,7 @@ def read_workbook(path: Path, sheet: str) -> RawTable:
             raise HeaderDriftError(
                 f"sheet {sheet!r} not found (sheets: {', '.join(workbook.sheetnames)})"
             )
+        source_modified = _read_source_modified(workbook)
         worksheet = workbook[sheet]
         iterator = worksheet.iter_rows(values_only=True)
         raw_headers = list(next(iterator, []))
@@ -116,4 +136,8 @@ def read_workbook(path: Path, sheet: str) -> RawTable:
         ]
     finally:
         workbook.close()
-    return RawTable(columns=tuple(columns), rows=tuple(rows))
+    return RawTable(
+        columns=tuple(columns),
+        rows=tuple(rows),
+        source_modified_utc=source_modified,
+    )
