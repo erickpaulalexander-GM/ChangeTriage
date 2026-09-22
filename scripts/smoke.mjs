@@ -86,9 +86,13 @@ check("csv-headers-only", emptyCsv.split("\r\n").length, 2); // header + trailin
 check("csv-col-count", emptyCsv.split("\r\n")[0].split(",").length, 34);
 const tricky = { ...ROWS[0], descripcion_cambio: 'a"b,c\nd' };
 check("csv-escape", window.TriageExport.toCSV([tricky]).includes('"a""b,c\nd"'), true);
-// Teams: one Ticket/App/window line per row.
-check("teams-lines", window.TriageExport.toTeamsSummary(ROWS).split("\n").length, 3);
-check("teams-first-line", window.TriageExport.toTeamsSummary([ROWS[0]]).startsWith("T-1001"), true);
+// Teams: normative header (Change Triage + filter context + count) + one
+// Ticket/App/window line per row.
+const plainSummary = window.TriageExport.toTeamsSummary(ROWS);
+check("teams-lines", plainSummary.split("\n").length, 6); // 3 header + 3 rows
+check("teams-first-line", plainSummary.split("\n")[0], "Change Triage");
+check("teams-nofilters-line", plainSummary.split("\n")[1], "Sin filtros (vista completa).");
+check("teams-count-line", plainSummary.split("\n")[2], "Resultados: 3 cambios encontrados.");
 
 console.log(`SMOKE_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
 
@@ -155,11 +159,11 @@ check("theme-toggle-to-light", themeGet(env), "light");
 check("theme-toggle-persist", env.store.get("triage-theme"), "light");
 check("theme-btn-pressed-light", env.button.getAttribute("aria-pressed"), "false");
 check("theme-btn-label-light", (env.button.getAttribute("aria-label") || "").includes("claro"), true);
-check("theme-btn-text-light", env.button.textContent.includes("Claro"), true);
+check("theme-btn-text-light", env.button.textContent, "☀");
 env.button.click();
 check("theme-toggle-back-dark", themeGet(env), "dark");
 check("theme-btn-pressed-dark", env.button.getAttribute("aria-pressed"), "true");
-check("theme-btn-text-dark", env.button.textContent.includes("Oscuro"), true);
+check("theme-btn-text-dark", env.button.textContent, "☾");
 
 // Palettes: both themes define every required variable with spec values.
 const css = readFileSync(join(root, "frontend", "assets", "css", "app.css"), "utf8");
@@ -201,7 +205,11 @@ check("theme-script-bundlable", /<script\b[^>]*\bsrc="assets\/js\/theme\.js"[^>]
 check("theme-script-no-closing-tag", /<\/script/i.test(readFileSync(join(jsDir, "theme.js"), "utf8")), false);
 check("theme-toggle-button", /<button\b[^>]*id="theme-toggle"[^>]*>/i.test(html), true);
 check("theme-toggle-aria", /id="theme-toggle"[^>]*aria-(pressed|label)/i.test(html), true);
-check("theme-toggle-visible-label", />[^<]*(Claro|Oscuro)[^<]*<\/button>/i.test(html.split('id="theme-toggle"')[1] || ""), true);
+check("theme-toggle-visible-label", />[^<]*(&#9789;|&#9790;|☀|☾)[^<]*<\/button>/i.test(html.split('id="theme-toggle"')[1] || ""), true);
+// Icon-only: no Claro/Oscuro text inside the button element itself
+// (the aria-label on the opening tag still carries the wording).
+const toggleInner = ((html.split('id="theme-toggle"')[1] || "").split("</button>")[0] || "").split(">").slice(1).join(">");
+check("theme-toggle-icon-only", /Claro|Oscuro/i.test(toggleInner), false);
 
 console.log(`SMOKE_THEME_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
 
@@ -228,7 +236,7 @@ check("filters-app-combobox", /id="f-app"[^>]*role="combobox"/.test(html), true)
 check("filters-combobox-aria", /aria-expanded/.test(html) && /aria-controls/.test(html) && /aria-autocomplete="list"/.test(html), true);
 check("filters-listbox-roles", /role="listbox"/.test(html), true);
 check("filters-tipo-select", /<select\b[^>]*id="f-tipo"/.test(html), true);
-check("filters-tipo-todos-first", /<select\b[^>]*id="f-tipo"[^>]*>\s*<option value="">Tipo \(Todos\)<\/option>/.test(html), true);
+check("filters-tipo-todos-first", /<select\b[^>]*id="f-tipo"[^>]*>\s*<option value="">TIPO CAMBIO<\/option>/.test(html), true);
 check("filters-no-tipo-preselect", /<option[^>]*selected/.test(html.split('id="f-tipo"')[1].split("</select>")[0]), false);
 check("filters-ticket-empty-default", /id="f-ticket"[^>]*value="[^"]+"/.test(html), false);
 check("filters-window-empty-default", /id="f-desde-date"[^>]*value="[^"]+"/.test(html) || /id="f-hasta-date"[^>]*value="[^"]+"/.test(html), false);
@@ -259,6 +267,7 @@ function fakeNode() {
     removeChild(c) { const i = node.children.indexOf(c); if (i >= 0) node.children.splice(i, 1); return c; },
     focus() { node.__focused = true; },
     closest() { return null; },
+    querySelector() { return null; },
     fire(ev, e) { (node.handlers[ev] || []).forEach((fn) => fn(e || {})); } };
   Object.defineProperty(node, "firstChild", { get() { return node.children[0] || null; } });
   return node;
@@ -266,7 +275,7 @@ function fakeNode() {
 
 function makeFilterDocument() {
   const els = new Map();
-  ["f-ticket", "f-ticket-list", "f-app", "f-app-list", "f-tipo"].forEach((id) => els.set(id, fakeNode()));
+  ["f-ticket", "f-ticket-list", "f-ticket-chips", "f-app", "f-app-list", "f-app-chips", "f-tipo"].forEach((id) => els.set(id, fakeNode()));
   const docHandlers = {};
   return { readyState: "complete",
     getElementById(id) { return els.get(id) || null; },
@@ -302,15 +311,17 @@ check("filters-case-insensitive", triageFilters.filterOptions(derived.apps, "hi4
 check("filters-cap", triageFilters.filterOptions(Array.from({ length: 60 }, (_, i) => "T-" + i), "", 50).length, 50);
 check("filters-blank-head", triageFilters.filterOptions(derived.apps, "").length, 2);
 
-// Tipo select populated dynamically with "Todos" default preserved.
+// Tipo select populated dynamically with "TIPO CAMBIO" default preserved.
 const tipoSel = filterDoc.__els.get("f-tipo");
 check("filters-tipo-populated", tipoSel.children.map((o) => o.textContent),
-  ["Tipo (Todos)", "Cambio Mayor", "Cambio Menor", "Emergencia"]);
+  ["TIPO CAMBIO", "Cambio Mayor", "Cambio Menor", "Emergencia"]);
 check("filters-tipo-default-value", tipoSel.value, "");
 
-// Combobox open/select/close behavior on the ticket field.
+// Combobox multi-select: a pick toggles a chip, clears the query box, keeps
+// the dropdown open for the next pick, and notifies the central filter.
 const ticketInput = filterDoc.__els.get("f-ticket");
 const ticketList = filterDoc.__els.get("f-ticket-list");
+const ticketChips = filterDoc.__els.get("f-ticket-chips");
 ticketInput.fire("focus");
 check("filters-open-on-focus", ticketList.hasAttribute("hidden"), false);
 check("filters-aria-expanded", ticketInput.getAttribute("aria-expanded"), "true");
@@ -319,9 +330,41 @@ ticketInput.fire("input");
 check("filters-narrows", ticketList.children.length, 1);
 const opt = ticketList.children[0];
 opt.fire("mousedown", { preventDefault() {} });
-check("filters-select-fills", ticketInput.value, "ITSM-2583450");
-check("filters-close-on-select", ticketList.hasAttribute("hidden"), true);
+check("filters-select-adds-chip", triageFilters.getSelected("ticket"), ["ITSM-2583450"]);
+check("filters-select-clears-query", ticketInput.value, "");
+check("filters-stays-open-on-select", ticketList.hasAttribute("hidden"), false);
 check("filters-select-applies-central", applyCalls > 0, true);
+const repainted = ticketList.children.filter((c) =>
+  c.getAttribute && c.getAttribute("data-value") === "ITSM-2583450")[0];
+check("filters-picked-check", repainted.getAttribute("aria-selected"), "true");
+// Ops-density single bar: the ONLY chip source is #active-filters below the
+// toolbar — combos carry the selection COUNT in their input placeholder
+// (Ticket -> Ticket (1), App (Todas) -> App (2)) and render no chips inside.
+check("filters-chip-rendered", triageFilters.getSelected("ticket"), ["ITSM-2583450"]);
+check("filters-no-chips-in-combo-markup", /id="f-ticket-chips"|id="f-app-chips"/.test(html), false);
+check("filters-placeholder-count", ticketInput.getAttribute("placeholder"), "Ticket (1)");
+check("filters-placeholder-shapes",
+  [triageFilters.placeholderFor("ticket", 0), triageFilters.placeholderFor("ticket", 2),
+   triageFilters.placeholderFor("app", 0), triageFilters.placeholderFor("app", 2)],
+  ["Ticket", "Ticket (2)", "App (Todas)", "App (2)"]);
+// Second pick accumulates; picking again toggles off.
+ticketInput.value = "2525538";
+ticketInput.fire("input");
+ticketList.children[0].fire("mousedown", { preventDefault() {} });
+check("filters-second-pick-accumulates", triageFilters.getSelected("ticket"),
+  ["ITSM-2583450", "ITSM-2525538"]);
+ticketInput.value = "2583450";
+ticketInput.fire("input");
+ticketList.children[0].fire("mousedown", { preventDefault() {} });
+check("filters-toggle-removes", triageFilters.getSelected("ticket"), ["ITSM-2525538"]);
+// Enter on free text adds a chip; Backspace on empty input removes last.
+ticketInput.value = "LIBRE-1";
+ticketInput.fire("keydown", { key: "Enter", preventDefault() {} });
+check("filters-enter-adds-free-text", triageFilters.getSelected("ticket"),
+  ["ITSM-2525538", "LIBRE-1"]);
+ticketInput.value = "";
+ticketInput.fire("keydown", { key: "Backspace", preventDefault() {} });
+check("filters-backspace-removes-last", triageFilters.getSelected("ticket"), ["ITSM-2525538"]);
 
 // Empty state + Escape + outside-click close on the app field.
 const appInput = filterDoc.__els.get("f-app");
@@ -333,9 +376,16 @@ filterDoc.fire("keydown", { key: "Escape" });
 check("filters-escape-closes", appList.hasAttribute("hidden") && ticketList.hasAttribute("hidden"), true);
 appInput.value = "";
 appInput.fire("focus");
-check("filters-app-todas-first", appList.children[0].textContent, "Todas");
+check("filters-app-todas-first", appList.children[0].getAttribute("data-value"), "Todas");
 appList.children[0].fire("mousedown", { preventDefault() {} });
 check("filters-todas-clears", appInput.value, "");
+check("filters-placeholder-cleared", appInput.getAttribute("placeholder"), "App (Todas)");
+// App multi-select accumulates chips the same way ticket does.
+appInput.value = "HI49";
+appInput.fire("input");
+appList.children[0].fire("mousedown", { preventDefault() {} });
+check("filters-app-chip", triageFilters.getSelected("app"), ["HI49"]);
+check("filters-placeholder-count-app", appInput.getAttribute("placeholder"), "App (1)");
 appInput.fire("focus");
 check("filters-reopen", appList.hasAttribute("hidden"), false);
 filterDoc.fire("mousedown", { target: {} });
@@ -347,6 +397,17 @@ check("filters-combined-central", search.matchesFilters(FROWS[0],
     desde: "2026-09-14T00:00:00", hasta: "2026-09-14T23:59:59" }), true);
 check("filters-combined-central-miss", search.matchesFilters(FROWS[0],
   { ticket: "2583450", app: "HI49", tipo: "Emergencia", desde: "", hasta: "" }), false);
+// Multi-select criteria: OR within a field, AND across fields.
+check("filters-multi-or-app", search.matchesFilters(FROWS[0],
+  { app: ["ZZZ", "HI49"], desde: "", hasta: "" }), true);
+check("filters-multi-or-app-miss", search.matchesFilters(FROWS[1],
+  { app: ["HI49"], desde: "", hasta: "" }), false);
+check("filters-multi-and-across", search.matchesFilters(FROWS[0],
+  { ticket: ["ITSM-2583450"], app: ["HI49"], desde: "", hasta: "" }), true);
+check("filters-multi-and-across-miss", search.matchesFilters(FROWS[0],
+  { ticket: ["ITSM-2583450"], app: ["AACC"], desde: "", hasta: "" }), false);
+check("filters-multi-ticket-or", search.matchesFilters(FROWS[1],
+  { ticket: ["ITSM-2583450", "ITSM-2525538"], desde: "", hasta: "" }), true);
 
 // Empty initial state shows the full count via the central applyFilters.
 search.applyFilters();
@@ -436,3 +497,157 @@ check("window-wired", /clear-filters/.test(searchCode)
   && /parseWindowBound/.test(searchCode) && /matchesWindow/.test(searchCode), true);
 
 console.log(`SMOKE_WINDOW_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
+
+/* ---- Daypick checks: Desde/Hasta dropdowns derive their days per column
+ * (Desde <- fec_hora_ini_impl, Hasta <- fec_hora_fin_impl) with no ini->fin
+ * range expansion; omitted/unknown side keeps the legacy union. Runs on the
+ * REAL daypick.js with a fake DOM in the style of the filters section. */
+
+const daypickCode = readFileSync(join(jsDir, "daypick.js"), "utf8");
+
+// One row crossing days (ini 14th 10:00 -> fin 16th 12:00 Lima); plus rows
+// deliberately out of order to prove per-side sorting.
+const DCROSS = row("T-9001", "2026-09-14T10:00:00-05:00", "2026-09-16T12:00:00-05:00");
+const DROWS = [
+  row("T-9002", "2026-09-16T10:00:00-05:00", "2026-09-17T12:00:00-05:00"),
+  DCROSS,
+  row("T-9003", "2026-09-15T08:00:00-05:00", "2026-09-15T09:00:00-05:00"),
+];
+
+function makeDaypickDocument() {
+  const els = new Map();
+  ["f-desde-date", "f-hasta-date", "f-desde-day", "f-hasta-day",
+    "f-desde-day-list", "f-hasta-day-list"].forEach((id) => els.set(id, fakeNode()));
+  return { readyState: "complete",
+    getElementById(id) { return els.get(id) || null; },
+    createElement() { return fakeNode(); },
+    querySelectorAll() { return []; },
+    addEventListener() {},
+    __els: els };
+}
+
+const dayDoc = makeDaypickDocument();
+const dayFactory = new Function("window", "document",
+  `${daypickCode}; return window.TriageDaypick;`);
+const daypick = dayFactory(
+  { Triage: { getRows: () => DROWS }, TriageSearch: search }, dayDoc);
+check("daypick-module-loads", !!daypick, true);
+
+// No expansion: the crossing row alone yields only its own column day.
+check("daypick-no-expand-desde", daypick.deriveDays([DCROSS], "desde"), ["2026-09-14"]);
+check("daypick-no-expand-hasta", daypick.deriveDays([DCROSS], "hasta"), ["2026-09-16"]);
+// Per-side derivation, sorted despite unordered input.
+check("daypick-desde-ordered", daypick.deriveDays(DROWS, "desde"),
+  ["2026-09-14", "2026-09-15", "2026-09-16"]);
+check("daypick-hasta-ordered", daypick.deriveDays(DROWS, "hasta"),
+  ["2026-09-15", "2026-09-16", "2026-09-17"]);
+// Legacy union without a side (compat) + unknown side behaves the same.
+check("daypick-union-legacy", daypick.deriveDays(DROWS),
+  ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17"]);
+check("daypick-union-legacy-unknown-side", daypick.deriveDays(DROWS, "otro"),
+  ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17"]);
+check("daypick-union-legacy-getdays", daypick.getDays(),
+  ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17"]);
+
+// refreshDays validates each hidden input against ITS side list: 09-17 is a
+// Hasta day but not a Desde day (and 09-14 vice versa), so both clear — a
+// shared union list would have kept them.
+dayDoc.__els.get("f-desde-date").value = "2026-09-17";
+dayDoc.__els.get("f-hasta-date").value = "2026-09-14";
+daypick.refreshDays();
+check("daypick-desde-refresh-clears-foreign", dayDoc.__els.get("f-desde-date").value, "");
+check("daypick-hasta-refresh-clears-foreign", dayDoc.__els.get("f-hasta-date").value, "");
+// Days present on their own side survive a refresh.
+dayDoc.__els.get("f-desde-date").value = "2026-09-15";
+dayDoc.__els.get("f-hasta-date").value = "2026-09-16";
+daypick.refreshDays();
+check("daypick-desde-refresh-keeps-valid", dayDoc.__els.get("f-desde-date").value, "2026-09-15");
+check("daypick-hasta-refresh-keeps-valid", dayDoc.__els.get("f-hasta-date").value, "2026-09-16");
+// Rendered option counts match the per-side lists (3 desde, 3 hasta).
+check("daypick-desde-list-count", dayDoc.__els.get("f-desde-day-list").children.length, 3);
+check("daypick-hasta-list-count", dayDoc.__els.get("f-hasta-day-list").children.length, 3);
+// Bundle-safe: no literal closing tag inside the JS.
+check("daypick-bundle-safe", /<\/script/i.test(daypickCode), false);
+
+console.log(`SMOKE_DAYPICK_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
+
+/* ---- Shareable-filter-state checks: URL codec roundtrip (build/parse),
+ * repeated-key getAll, tolerant parse, markup (copy-link, active-filters,
+ * chips below inputs, script tag), Teams header with active filters, and
+ * the filters.js value-removal/setter surface. Runs without a browser. */
+
+const shareCode = readFileSync(join(jsDir, "share.js"), "utf8");
+check("share-bundle-safe", /<\/script/i.test(shareCode), false);
+check("share-script-tag", /src="assets\/js\/share\.js"/.test(html), true);
+check("share-copy-link-btn", /id="copy-link"/.test(html) && /Copiar enlace filtrado/.test(html), true);
+check("share-active-filters-div", /id="active-filters"/.test(html), true);
+check("share-active-filters-hidden-empty", /id="active-filters"[^>]*hidden/.test(html), true);
+// Ops-density single bar: combos carry counts in their placeholders and
+// render no chips inside — the only chip source is #active-filters.
+check("share-no-chips-in-ticket-combo", /id="f-ticket-chips"/.test(html), false);
+check("share-no-chips-in-app-combo", /id="f-app-chips"/.test(html), false);
+check("share-hooks-refresh", /__shareHooked/.test(shareCode), true);
+check("share-no-matching-touch", /matchesFilters|matchesWindow|matchesQuery/.test(shareCode), false);
+
+// Codec runs standalone: stub DOM (codec needs none) + location/history.
+function makeShareDocument() {
+  return { readyState: "complete",
+    getElementById() { return null; },
+    createElement() { return fakeNode(); },
+    addEventListener() {} };
+}
+const shareWin = { location: { search: "", href: "http://localhost/triage.html" },
+  history: { replaceState() {} }, navigator: {} };
+const shareFactory = new Function("window", "document",
+  `${shareCode}; return window.TriageShare;`);
+const share = shareFactory(shareWin, makeShareDocument());
+check("share-module-loads", !!share && typeof share.buildParams === "function"
+  && typeof share.parseParams === "function"
+  && typeof share.afterApply === "function"
+  && typeof share.copyLink === "function", true);
+
+const SHARE_CRIT = { q: "hi49 outage", ticket: ["ITSM-1", "ITSM-2"],
+  app: ["HI49", "YAPE"], tipo: "Cambio Mayor",
+  desde: "2026-09-20T00:00:00", hasta: "2026-09-20T01:00:00" };
+const built = share.buildParams(SHARE_CRIT);
+check("share-roundtrip", share.parseParams("?" + built),
+  { q: "hi49 outage", ticket: ["ITSM-1", "ITSM-2"], app: ["HI49", "YAPE"],
+    tipo: "Cambio Mayor", desde: "2026-09-20T00:00", hasta: "2026-09-20T01:00" });
+check("share-multi-app", share.parseParams("?app=HI49&app=YAPE").app, ["HI49", "YAPE"]);
+check("share-multi-ticket", share.parseParams("?ticket=A&ticket=B").ticket, ["A", "B"]);
+check("share-tolerant", share.parseParams("?foo=1&app=&tipo=&q=&desde=nope"),
+  { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "" });
+check("share-encode", share.parseParams("?" + share.buildParams(
+  { q: "a/b c?", ticket: [], app: [], tipo: "", desde: "", hasta: "" })).q, "a/b c?");
+check("share-desde-shape", /(^|&)desde=2026-09-20T00%3A00(&|$)/.test(built), true);
+check("share-empty-build", share.buildParams(
+  { q: " ", ticket: [], app: [], tipo: "", desde: "", hasta: "" }), "");
+
+// Teams header with active filters (stubbed criteria + daypick short form).
+const expCode = readFileSync(join(jsDir, "export.js"), "utf8");
+const expWin = { TriageSearch: { getCriteria: () => SHARE_CRIT },
+  TriageDaypick: { formatDay: (d) => d, formatWindowShort: () => "20 Sep · 00:00–01:00" },
+  Drawer: { formatDate: (v) => v } };
+const expFactory = new Function("window", "document",
+  `${expCode}; return window.TriageExport;`);
+const expFiltered = expFactory(expWin, makeDocument());
+const header = expFiltered.toTeamsSummary([ROWS[0]]);
+check("teams-header-title", header.split("\n")[0], "Change Triage");
+check("teams-header-active", header.split("\n")[1], "Filtros aplicados:");
+check("teams-header-tickets", header.includes("• Tickets: ITSM-1, ITSM-2"), true);
+check("teams-header-apps", header.includes("• Apps: HI49, YAPE"), true);
+check("teams-header-tipo", header.includes("• Tipo: Cambio Mayor"), true);
+check("teams-header-window", header.includes("• Ventana: 20 Sep · 00:00–01:00"), true);
+check("teams-header-query", header.includes("• Búsqueda: hi49 outage"), true);
+check("teams-header-count", header.includes("Resultados: 1 cambios encontrados."), true);
+check("teams-header-row-kept", header.split("\n").length, 9); // 8 header + 1 row
+
+// filters.js value surface used by chips/restore.
+check("filters-remove-value-exposed", typeof triageFilters.removeValue, "function");
+check("filters-set-selected-exposed", typeof triageFilters.setSelected, "function");
+triageFilters.setSelected("app", ["HI49", "YAPE"]);
+check("filters-set-selected-roundtrip", triageFilters.getSelected("app"), ["HI49", "YAPE"]);
+triageFilters.removeValue("app", "HI49");
+check("filters-remove-value-drops-one", triageFilters.getSelected("app"), ["YAPE"]);
+
+console.log(`SMOKE_SHARE_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);

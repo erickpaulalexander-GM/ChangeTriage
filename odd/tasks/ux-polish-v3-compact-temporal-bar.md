@@ -51,4 +51,4 @@ Exploración read-only completa. Implementación autorizada por pedido explícit
 - T1 node: Lun 14 Sep · 00:00–00:30 success. T2 14/15 asserts + -39% altura. T3 baseline inspección 1400 OK. T4 178/178/457 conteos OK. T5 Hoy 192/Ayer 138/Toda 457 + N=4 OK. T6 11 checks pass (1 fix keyboard) + node --check 4 JS. pytest unavailable (sin pytest), navegador headless unavailable (inspección + harness).
 
 ## Next step
-- Delegar T8 a writer único (altura 120px).
+- Push manual desde entorno autenticado: `git push -u origin chore/triage-single-file`. Commits locales: d6eacee feat frontend, 9dd8c11 fix pipeline, 97df3e9 docs specs. data.json (1.2MB) excluido a propósito.

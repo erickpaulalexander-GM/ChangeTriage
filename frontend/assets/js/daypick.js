@@ -1,12 +1,20 @@
 /* Change Triage available-days dropdowns for the implementation window.
  *
  * Replaces the native month-calendar date inputs: each Desde/Hasta card gets
- * a day dropdown listing ONLY the unique days present in data.json between
- * FEC HORA INI IMPL and FEC HORA FIN IMPL (inclusive per-row range expansion,
- * sorted chronologically — never a fixed count, so 3-day and 5-day windows
- * both work). Day labels carry a Spanish short weekday derived per date in
- * America/Lima ("Lun 14 Sep"), matching the Lima wall-clock space used by
- * search.js.
+ * a day dropdown listing ONLY the real days of its own column — Desde offers
+ * the unique days of FEC HORA INI IMPL, Hasta the unique days of
+ * FEC HORA FIN IMPL (each sorted chronologically).
+ *
+ * Old design (replaced): deriveDays expanded every row ini->fin into all
+ * covered days and merged both sides into one shared list, so a single row
+ * spanning months flooded both dropdowns with days where nothing starts or
+ * ends (181 consecutive days with current data). The new per-column design
+ * never expands: a row crossing 14->16 contributes the 14th to Desde and
+ * the 16th to Hasta only.
+ *
+ * Compat: deriveDays(rows) without a side still returns the legacy union of
+ * both columns, and getDays() returns that same union — nothing outside this
+ * file consumes either (verified by grep), but the exports are kept.
  *
  * Date sourcing only: the picked day is stored as "YYYY-MM-DD" in the hidden
  * #f-desde-date / #f-hasta-date inputs — the exact values the filter logic
@@ -20,8 +28,6 @@
 window.TriageDaypick = (function () {
   var SIDES = ["desde", "hasta"];
   var PLACEHOLDER = "Seleccionar día";
-  // Guard against pathological multi-year spans when expanding ranges.
-  var MAX_SPAN = 370;
 
   // Fixed Spanish short months so labels never vary by browser locale data.
   var MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
@@ -29,7 +35,7 @@ window.TriageDaypick = (function () {
   // Fallback weekday table (Dom=0), used only when Intl is unavailable.
   var WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-  var state = { days: [] };
+  var state = { desde: [], hasta: [] };
 
   function el(id) {
     return document.getElementById(id);
@@ -65,37 +71,35 @@ window.TriageDaypick = (function () {
     return /^\d{4}-\d{2}-\d{2}$/.test(text || "");
   }
 
-  function addDays(ymd, delta) {
-    var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || "");
-    if (!p) return "";
-    var t = Date.UTC(+p[1], +p[2] - 1, +p[3]) + delta * 86400000;
-    return new Date(t).toISOString().slice(0, 10);
-  }
-
-  // Unique days covered by the loaded rows: each row contributes every day
-  // from its ini date through its fin date (inclusive), so a row spanning
-  // 14->16 also covers the 15th even if no row starts on it. Sorted
-  // chronologically (ISO strings sort lexicographically).
-  function deriveDays(rows) {
+  // Unique sorted days of one column: wallOf(row[key]) sliced to
+  // YYYY-MM-DD, validated with isDay. No range expansion — a row crossing
+  // 14->16 contributes only its own column day here.
+  function uniqDays(rows, key) {
     var seen = {};
     var out = [];
     (Array.isArray(rows) ? rows : []).forEach(function (row) {
       if (!row) return;
-      var ini = wallOf(row.fec_hora_ini_impl).slice(0, 10);
-      var fin = wallOf(row.fec_hora_fin_impl).slice(0, 10);
-      if (!isDay(ini) && !isDay(fin)) return;
-      var start = isDay(ini) ? ini : fin;
-      var end = isDay(fin) ? fin : ini;
-      if (end < start) { var swap = start; start = end; end = swap; }
-      var day = start;
-      var guard = 0;
-      while (day <= end && guard < MAX_SPAN) {
-        if (!seen[day]) { seen[day] = true; out.push(day); }
-        if (day === end) break;
-        day = addDays(day, 1);
-        guard += 1;
-      }
+      var day = wallOf(row[key]).slice(0, 10);
+      if (!isDay(day) || seen[day]) return;
+      seen[day] = true;
+      out.push(day);
     });
+    out.sort();
+    return out;
+  }
+
+  // Per-column derivation: 'desde' -> unique ini days, 'hasta' -> unique fin
+  // days. Omitted/unknown side returns the legacy union of both columns,
+  // sorted chronologically (compat: getDays() exposes the same union).
+  function deriveDays(rows, side) {
+    if (side === "desde") return uniqDays(rows, "fec_hora_ini_impl");
+    if (side === "hasta") return uniqDays(rows, "fec_hora_fin_impl");
+    var seen = {};
+    var out = [];
+    uniqDays(rows, "fec_hora_ini_impl").concat(uniqDays(rows, "fec_hora_fin_impl"))
+      .forEach(function (day) {
+        if (!seen[day]) { seen[day] = true; out.push(day); }
+      });
     out.sort();
     return out;
   }
@@ -248,7 +252,7 @@ window.TriageDaypick = (function () {
     if (!list || typeof document === "undefined" || !document.createElement) return;
     while (list.firstChild) list.removeChild(list.firstChild);
     list.setAttribute("data-active", "-1");
-    state.days.forEach(function (day) {
+    (state[side] || []).forEach(function (day) {
       var item = document.createElement("li");
       item.className = "daypick-option";
       item.setAttribute("role", "option");
@@ -334,19 +338,33 @@ window.TriageDaypick = (function () {
     }
   }
 
-  // Rebuilds the day lists from the current rows; keeps a still-available
-  // selection, drops one that vanished (button falls back to the
-  // placeholder, filter bound goes inactive).
+  // Legacy union of both per-side lists, sorted (compat: callers outside
+  // this file predate the per-column split).
+  function getDays() {
+    var seen = {};
+    var out = [];
+    (state.desde || []).concat(state.hasta || []).forEach(function (day) {
+      if (!seen[day]) { seen[day] = true; out.push(day); }
+    });
+    out.sort();
+    return out;
+  }
+
+  // Rebuilds each day list from its own column; keeps a still-available
+  // selection, drops one that vanished from its side (button falls back to
+  // the placeholder, filter bound goes inactive).
   function refreshDays() {
-    state.days = deriveDays(getRows());
+    var rows = getRows();
+    state.desde = deriveDays(rows, "desde");
+    state.hasta = deriveDays(rows, "hasta");
     SIDES.forEach(function (side) {
       var value = selectedOf(side);
       var hidden = el(hiddenId(side));
-      if (value && state.days.indexOf(value) === -1 && hidden) hidden.value = "";
+      if (value && (state[side] || []).indexOf(value) === -1 && hidden) hidden.value = "";
       renderList(side);
       syncButton(side);
     });
-    return state.days;
+    return getDays();
   }
 
   function wireSide(side) {
@@ -475,6 +493,6 @@ window.TriageDaypick = (function () {
     weekdayShort: weekdayShort,
     refreshDays: refreshDays,
     syncFromInputs: syncFromInputs,
-    getDays: function () { return state.days.slice(); },
+    getDays: getDays,
   };
 })();
