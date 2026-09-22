@@ -155,13 +155,13 @@
     return ini + " → " + fin;
   }
 
-  // Channel chips (canales): squad vs ratificar token lists ("APIG",
-  // "TPWL, MBBK", newline-separated in the workbook). Most rows carry
-  // identical lists, so one "Canales" line covers both; a second
-  // "Ratificar" line appears only when the lists differ. Empty lists
-  // render nothing, leaving the compact card height untouched. Visible
-  // chips cap at 4 with a "+N" overflow chip; the full list stays in
-  // the title tooltip.
+  // Channel capsules (canales): squad vs ratificar token lists ("APIG",
+  // "TPWL, MBBK", newline-separated in the workbook). Rendered as a
+  // two-column grid (label over chips per column) so both fields use the
+  // card's empty horizontal space instead of growing the row downward.
+  // Empty lists render nothing, leaving the compact card shape untouched.
+  // Visible chips cap at 4 per column with a "+N" overflow chip; the full
+  // list stays in the column title tooltip.
   var CANALES_MAX = 4;
 
   function channelTokens(value) {
@@ -173,27 +173,30 @@
     return out;
   }
 
-  function channelLine(label, tokens, full) {
-    var line = document.createElement("div");
-    line.className = "canales";
-    var name = document.createElement("span");
+  function canalGroup(label, tokens, full) {
+    var group = document.createElement("div");
+    group.className = "canal-group";
+    var name = document.createElement("div");
     name.className = "canales-label";
     name.textContent = label;
-    line.append(name);
+    group.append(name);
+    var chips = document.createElement("div");
+    chips.className = "canal-chips";
+    chips.title = full;
     tokens.slice(0, CANALES_MAX).forEach(function (token) {
       var chip = document.createElement("span");
       chip.className = "chip";
       chip.textContent = token;
-      line.append(chip);
+      chips.append(chip);
     });
     if (tokens.length > CANALES_MAX) {
       var more = document.createElement("span");
       more.className = "chip chip-more";
       more.textContent = "+" + (tokens.length - CANALES_MAX);
-      line.append(more);
+      chips.append(more);
     }
-    line.title = full;
-    return line;
+    group.append(chips);
+    return group;
   }
 
   function renderList(rows, options) {
@@ -225,13 +228,18 @@
       // keeps its two-line compact shape on rows without channel data.
       var squad = channelTokens(row.canales_app_impactadas_segun_squad);
       var ratif = channelTokens(row.canales_app_a_ratificar);
-      if (squad.length) {
-        btn.append(channelLine("Canales", squad,
-          String(row.canales_app_impactadas_segun_squad).trim()));
-      }
-      if (ratif.length && ratif.join("\n") !== squad.join("\n")) {
-        btn.append(channelLine("Ratificar", ratif,
-          String(row.canales_app_a_ratificar).trim()));
+      if (squad.length || ratif.length) {
+        var grid = document.createElement("div");
+        grid.className = "canales";
+        if (squad.length) {
+          grid.append(canalGroup("CANALES APP IMPACTADAS SEGÚN SQUAD", squad,
+            String(row.canales_app_impactadas_segun_squad).trim()));
+        }
+        if (ratif.length) {
+          grid.append(canalGroup("CANALES APP A RATIFICAR", ratif,
+            String(row.canales_app_a_ratificar).trim()));
+        }
+        btn.append(grid);
       }
       btn.append(stateEl);
       if (row._overlap === true || row._overlap === false) {
