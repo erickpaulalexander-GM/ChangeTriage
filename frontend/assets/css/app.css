@@ -16,8 +16,8 @@
   --tint-success: rgba(76, 195, 138, 0.14);
   --tint-warning: rgba(232, 179, 75, 0.14);
   --tint-danger: rgba(232, 138, 128, 0.14);
-  --tint-auto: rgba(150, 133, 211, 0.16);
-  --auto-accent: #9685D3;
+  --tint-auto: rgba(232, 150, 80, 0.20);
+  --auto-accent: #E89B5A;
   --shadow-drawer: none;
   --shadow-card: none;
   --radius-card: 20px;

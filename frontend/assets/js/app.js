@@ -210,10 +210,13 @@
       btn.dataset.index = String(index);
       btn.innerHTML = "";
       // Out-of-jurisdiction signal: recurso automatizado rows get the
-      // pastel wash (matches AUTOMATIZADO and AUTOMATIZADO ITSM).
+      // pastel wash (matches AUTOMATIZADO, AUTOMATIZADO ITSM and
+      // EXPRESS AUTOMATICO).
       var recursoRaw = row.recurso === null || row.recurso === undefined
         ? "" : String(row.recurso);
-      if (/automatizado/i.test(recursoRaw)) btn.classList.add("is-auto");
+      if (/automatizado|express automatico/i.test(recursoRaw)) {
+        btn.classList.add("is-auto");
+      }
       var ticket = document.createElement("span");
       ticket.className = "ticket";
       ticket.textContent = row.ticket + " — " + row.nombre_app;
