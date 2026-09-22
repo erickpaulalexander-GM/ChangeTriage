@@ -13,13 +13,19 @@
     "./data/data.json",
   ];
 
-  var state = { rows: [], visible: [], meta: { generatedAt: "", minStart: "", maxEnd: "" } };
+  var state = {
+    rows: [],
+    visible: [],
+    meta: { generatedAt: "", sourceModifiedAt: "", sourceFile: "", minStart: "", maxEnd: "" },
+  };
   var els = {};
 
-  // Operational header bar: three live indicators fed from data.json only
-  // (row count, generated_at, min/max implementation window). Lima wall-clock
+  // Compact-layout header slots (C1): three live indicators fed from
+  // data.json only (row count, generated_at/source_modified_at, min/max
+  // implementation window), rendered into #results-count, #kyndryl-updated
+  // and #window-range since the opbar was removed. Lima wall-clock
   // formatting slices the "YYYY-MM-DDTHH:MM:SS" wall text directly — never
-  // `new Date(str)` on naive strings, never UTC conversion — so the header
+  // `new Date(str)` on naive strings, never UTC conversion — so the slots
   // can never shift a day against the search.js overlap logic.
   function wallParts(wall) {
     var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(wall || "");
@@ -32,17 +38,29 @@
     return p ? p.d + "/" + p.mo + "/" + p.y + " " + p.h + ":" + p.mi : "—";
   }
 
-  function fmtShort(wall) {
+  // Compact-layout slots (C1): short Spanish month table for the "D Mon"
+  // form ("21 Sep", "20 Sep"). TriageDaypick.formatDay adds the weekday
+  // ("Lun 14 Sep"), which these slots don't want, and MONTHS isn't exported
+  // there — so this minimal local table is the documented fallback.
+  var MONTHS_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+  // "2026-09-21T15:55:00" -> "21 Sep". Wall-string only (Lima wall text via
+  // toWall upstream), never `new Date` on naive strings.
+  function fmtDayMon(wall) {
     var p = wallParts(wall);
-    return p ? p.d + "/" + p.mo : "—";
+    if (!p) return "—";
+    return p.d.replace(/^0/, "") + " " + (MONTHS_ES[+p.mo - 1] || p.mo);
   }
 
-  function dayCount(minWall, maxWall) {
-    var a = wallParts(minWall), b = wallParts(maxWall);
-    if (!a || !b) return 0;
-    var da = Date.UTC(+a.y, +a.mo - 1, +a.d);
-    var db = Date.UTC(+b.y, +b.mo - 1, +b.d);
-    return Math.round((db - da) / 86400000) + 1;
+  // Source-workbook timestamp for the header slot: "🕒 21 Sep · 15:55"
+  // (no "Actualizado" word per spec). Source date wins; legacy payloads
+  // fall back to the build time; "🕒 —" while unknown.
+  function fmtUpdated(wall) {
+    var p = wallParts(wall);
+    if (!p) return "🕒 —";
+    return "🕒 " + p.d.replace(/^0/, "") + " " +
+      (MONTHS_ES[+p.mo - 1] || p.mo) + " · " + p.h + ":" + p.mi;
   }
 
   function toWall(value) {
@@ -63,29 +81,45 @@
     return { min: min, max: max };
   }
 
+  // Window-module subtitle from the dataset range (computeRange min/max):
+  // "20 Sep → 21 Sep", single day "20 Sep", "—" unknown. Day counts live in
+  // the "Toda la ventana" preset tooltip (ops density: no duplicated counts).
   function rangeText() {
     var min = state.meta.minStart, max = state.meta.maxEnd;
-    if (!min || !max) return "📅 Disponible: —";
+    if (!min || !max) return "—";
     if (min.slice(0, 10) === max.slice(0, 10)) {
-      var today = "";
-      try { today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); } catch (e) {}
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) today = new Date(Date.now() - 5 * 3600000).toISOString().slice(0, 10);
-      if (min.slice(0, 10) === today) return "📅 Disponible: Hoy";
-      return "📅 Disponible: " + fmtShort(min) + " (1 día)";
+      return fmtDayMon(min);
     }
-    return "📅 Disponible: " + fmtShort(min) + " → " + fmtShort(max) +
-      " (" + dayCount(min, max) + " días)";
+    return fmtDayMon(min) + " → " + fmtDayMon(max);
   }
 
+  // Provenance tooltip: always states the build time so it is not lost, and
+  // names the source workbook when known. The header date describes the
+  // SOURCE workbook, not the build, so a rebuild without a new workbook
+  // cannot claim fresh data (false confidence); the tooltip keeps the build
+  // time discoverable without letting it masquerade as the data date.
+  function provenanceTitle(buildWall) {
+    var parts = [];
+    if (state.meta.sourceFile) parts.push("Fuente: " + state.meta.sourceFile);
+    if (buildWall) parts.push("Build: " + fmtFull(buildWall) + " (Lima)");
+    return parts.join(" · ");
+  }
+
+  // Compact-layout slots (C1): the opbar is gone. Count lives in
+  // #results-count above the list ("12 resultados de 913 cambios"; always
+  // visible/total — unfiltered that's "913 resultados de 913 cambios"),
+  // the source date under the Kyndryl logo, the range in #window-range.
   function updateOpbar(visible) {
     var total = state.rows.length;
-    var count = (typeof visible === "number" && visible !== total)
-      ? visible + " de " + total : String(total);
-    if (els.count) els.count.textContent = "📦 " + count + " cambios cargados";
+    var shown = (typeof visible === "number") ? visible : total;
+    if (els.count) els.count.textContent =
+      shown + " resultados de " + total + " cambios";
     if (els.updated) {
-      els.updated.textContent = state.meta.generatedAt
-        ? "🕒 Actualizado: " + fmtFull(toWall(state.meta.generatedAt)) + " (Lima)"
-        : "🕒 Actualizado: —";
+      // Source workbook date wins; legacy payloads fall back to the build time.
+      var buildWall = toWall(state.meta.generatedAt);
+      var shownWall = toWall(state.meta.sourceModifiedAt) || buildWall;
+      els.updated.textContent = fmtUpdated(shownWall);
+      els.updated.title = provenanceTitle(buildWall);
     }
     if (els.range) els.range.textContent = rangeText();
   }
@@ -136,7 +170,12 @@
       ticket.textContent = row.ticket + " — " + row.nombre_app;
       var meta = document.createElement("div");
       meta.className = "meta";
-      meta.textContent = row.tipo_cambio + " · " + windowLabel(row);
+      // Recurso visible en tarjeta (AUTOMATIZADO, INFRAESTRUCTURA, YAPE…):
+      // identifica de un vistazo el origen del cambio. Se omite si vacío.
+      var recurso = row.recurso === null || row.recurso === undefined
+        ? "" : String(row.recurso).trim();
+      meta.textContent = row.tipo_cambio + " · " + windowLabel(row)
+        + (recurso ? " · " + recurso : "");
       var stateEl = document.createElement("span");
       stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
@@ -170,10 +209,12 @@
 
   function load() {
     els = {
-      status: document.getElementById("status"),
-      count: document.getElementById("op-count"),
-      updated: document.getElementById("op-updated"),
-      range: document.getElementById("op-range"),
+      // els.status keeps the reset() focus target: the count line doubles
+      // as the live region since the opbar was removed (C1).
+      status: document.getElementById("results-count"),
+      count: document.getElementById("results-count"),
+      updated: document.getElementById("kyndryl-updated"),
+      range: document.getElementById("window-range"),
       results: document.getElementById("results"),
       empty: document.getElementById("empty"),
     };
@@ -199,7 +240,7 @@
     });
     chain.then(onData).catch(function (err) {
       console.error("[triage] data.json load failed: " + err.message);
-      if (els.count) els.count.textContent = "📦 No se pudieron cargar los cambios";
+      if (els.count) els.count.textContent = "No se pudieron cargar los cambios";
       renderList([]);
     });
   }
@@ -207,6 +248,8 @@
   function onData(data) {
     state.rows = Array.isArray(data.rows) ? data.rows : [];
     state.meta.generatedAt = typeof data.generated_at === "string" ? data.generated_at : "";
+    state.meta.sourceModifiedAt = typeof data.source_modified_at === "string" ? data.source_modified_at : "";
+    state.meta.sourceFile = typeof data.source_file === "string" ? data.source_file : "";
     var range = computeRange(state.rows);
     state.meta.minStart = range.min;
     state.meta.maxEnd = range.max;

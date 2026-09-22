@@ -60,11 +60,96 @@ window.TriageExport = (function () {
     return fmt(row.fec_hora_ini_impl) + " → " + fmt(row.fec_hora_fin_impl);
   }
 
-  // One Ticket/App/window line per row.
+  // Normative shareable-state header for the Teams summary (client format):
+  // only sections with an active filter are listed (+Tickets/+Búsqueda when
+  // they apply); with no filters a single "Sin filtros" line is used. Reads
+  // the live criteria from TriageSearch so the summary always describes the
+  // visible rows; count = rows.length (visible rows).
+  function criteriaOf() {
+    if (window.TriageSearch && typeof window.TriageSearch.getCriteria === "function") {
+      try {
+        return window.TriageSearch.getCriteria();
+      } catch (e) { /* fall through to the empty shape below */ }
+    }
+    return { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "" };
+  }
+
+  function cleanValues(values) {
+    var out = [];
+    (Array.isArray(values) ? values : []).forEach(function (entry) {
+      var clean = cell(entry).trim();
+      if (clean) out.push(clean);
+    });
+    return out;
+  }
+
+  function fallbackDay(day) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cell(day));
+    return m ? m[3] + "/" + m[2] : cell(day);
+  }
+
+  function formatDayOf(day) {
+    if (window.TriageDaypick && typeof window.TriageDaypick.formatDay === "function") {
+      try {
+        var label = window.TriageDaypick.formatDay(day);
+        if (label) return label;
+      } catch (e) { /* fall through to the local fallback */ }
+    }
+    return fallbackDay(day);
+  }
+
+  function windowLabelShort(desde, hasta) {
+    desde = cell(desde);
+    hasta = cell(hasta);
+    if (!desde && !hasta) return "";
+    if (desde && hasta) {
+      if (window.TriageDaypick && typeof window.TriageDaypick.formatWindowShort === "function") {
+        try {
+          var short = window.TriageDaypick.formatWindowShort(desde, hasta);
+          if (short) return short;
+        } catch (e) { /* fall through to the local fallback */ }
+      }
+      var dDay = desde.slice(0, 10);
+      var hDay = hasta.slice(0, 10);
+      var dTime = desde.slice(11, 16);
+      var hTime = hasta.slice(11, 16);
+      if (dDay === hDay) return formatDayOf(dDay) + " · " + dTime + "-" + hTime;
+      return formatDayOf(dDay) + " " + dTime + " → " + formatDayOf(hDay) + " " + hTime;
+    }
+    if (desde) return formatDayOf(desde.slice(0, 10)) + " · desde " + desde.slice(11, 16);
+    return formatDayOf(hasta.slice(0, 10)) + " · hasta " + hasta.slice(11, 16);
+  }
+
+  function headerLines(count) {
+    var criteria = criteriaOf();
+    var tickets = cleanValues(criteria.ticket);
+    var apps = cleanValues(criteria.app);
+    var tipo = cell(criteria.tipo).trim();
+    var query = cell(criteria.q).trim();
+    var win = windowLabelShort(criteria.desde, criteria.hasta);
+    var lines = ["Change Triage"];
+    if (!tickets.length && !apps.length && !tipo && !query && !win) {
+      lines.push("Sin filtros (vista completa).");
+    } else {
+      lines.push("Filtros aplicados:");
+      if (tickets.length) lines.push("• Tickets: " + tickets.join(", "));
+      if (apps.length) lines.push("• Apps: " + apps.join(", "));
+      if (tipo) lines.push("• Tipo: " + tipo);
+      if (win) lines.push("• Ventana: " + win);
+      if (query) lines.push("• Búsqueda: " + query);
+    }
+    lines.push("Resultados: " + count + " cambios encontrados.");
+    return lines;
+  }
+
+  // Header + one Ticket/App/window line per row.
   function toTeamsSummary(rows) {
-    return rows.map(function (row) {
-      return (row.ticket || "?") + " — " + (row.nombre_app || "?") + " (" + windowLabel(row) + ")";
-    }).join("\n");
+    var list = Array.isArray(rows) ? rows : [];
+    var lines = headerLines(list.length);
+    list.forEach(function (row) {
+      lines.push((row.ticket || "?") + " — " + (row.nombre_app || "?") + " (" + windowLabel(row) + ")");
+    });
+    return lines.join("\n");
   }
 
   function showFallback(text) {
@@ -82,15 +167,13 @@ window.TriageExport = (function () {
     box.hidden = true;
     // Counts only — never log row values (production-data caution).
     console.info("[triage] Teams summary copy: rows=" + rows.length);
-    if (rows.length === 0) {
-      showFallback("");
-      return;
-    }
+    // The header always carries the filter context + count, so even an empty
+    // result set is worth copying (no early return).
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
-        // Operational header bar owns #status now: confirm in its count slot
-        // when present, else fall back to the legacy status element.
-        var statusEl = document.getElementById("op-count") || document.getElementById("status");
+        // Compact layout (C1): the opbar count slot is gone — confirm on
+        // the #results-count line above the list. Copy logic untouched.
+        var statusEl = document.getElementById("results-count");
         if (statusEl) {
           statusEl.textContent =
             "Copied " + rows.length + " change summaries for Teams.";

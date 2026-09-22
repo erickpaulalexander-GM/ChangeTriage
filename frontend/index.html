@@ -11,6 +11,7 @@
   <script src="assets/js/filters.js" defer></script>
   <script src="assets/js/presets.js" defer></script>
   <script src="assets/js/daypick.js" defer></script>
+  <script src="assets/js/share.js" defer></script>
   <script src="assets/js/export.js" defer></script>
   <script src="assets/js/app.js" defer></script>
 </head>
@@ -21,20 +22,15 @@
       <h1>Change Triage</h1>
       <p class="subtitle">Portal de Validación de Cambios en Producción</p>
     </div>
+    <div class="brand-side">
+      <img class="logo" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
+      <div class="kyndryl-meta"><span id="kyndryl-updated">🕒 —</span></div>
+    </div>
     <button type="button" id="theme-toggle" class="theme-toggle"
-      aria-pressed="true" aria-label="Tema actual: oscuro. Cambiar a tema claro.">&#9789; Oscuro</button>
-    <img class="logo" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
+      aria-pressed="true" aria-label="Tema actual: oscuro. Cambiar a tema claro.">&#9789;</button>
   </header>
 
   <main id="main">
-    <div class="opbar" id="status" role="status" aria-live="polite">
-      <span class="opbar-item" id="op-count">📦 Cargando cambios…</span>
-      <span class="opbar-sep" aria-hidden="true">|</span>
-      <span class="opbar-item" id="op-updated">🕒 Actualizado: —</span>
-      <span class="opbar-sep" aria-hidden="true">|</span>
-      <span class="opbar-item" id="op-range">📅 Disponible: —</span>
-    </div>
-
     <section class="toolbar" aria-label="Search, filter, and export">
       <input class="search" id="q" type="search" autocomplete="off"
         placeholder="Search everything…"
@@ -90,22 +86,26 @@
             </div>
           </div>
           <div class="presets" role="group" aria-label="Rango rápido de implementación">
-            <span class="presets-label">Rango rápido:</span>
             <button type="button" data-preset="today">Hoy</button>
             <button type="button" data-preset="yesterday">Ayer</button>
             <button type="button" data-preset="all">Toda la ventana</button>
           </div>
+          <span class="window-range" id="window-range" aria-live="polite">—</span>
         </div>
       </div>
       <div class="actions">
-        <button type="button" id="export-csv">Export CSV</button>
-        <button type="button" id="export-teams">Copy Teams summary</button>
+        <button type="button" id="export-csv" class="icon-btn" title="Export CSV" aria-label="Export CSV"><img class="btn-icon" src="assets/images/excel.svg" alt=""></button>
+        <button type="button" id="export-teams" class="icon-btn" title="Copy Teams summary" aria-label="Copy Teams summary"><img class="btn-icon" src="assets/images/teams.svg" alt=""></button>
+        <button type="button" id="copy-link" class="icon-btn" title="Copiar enlace filtrado" aria-label="Copiar enlace con los filtros actuales">🔗</button>
         <button type="button" id="clear-filters" class="linklike">Limpiar filtros</button>
       </div>
       <textarea class="fallback" id="teams-fallback" rows="6" readonly hidden
         aria-label="Teams summary fallback for manual copy"></textarea>
     </section>
 
+    <div class="active-filters" id="active-filters" hidden
+      aria-label="Filtros activos" aria-live="polite"></div>
+    <p class="results-count" id="results-count" role="status" aria-live="polite">Cargando cambios…</p>
     <ul class="results" id="results" aria-label="Change results"></ul>
 
     <section class="empty" id="empty" hidden>

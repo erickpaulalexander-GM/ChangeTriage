@@ -88,11 +88,30 @@ window.TriageSearch = (function () {
     return true;
   }
 
+  // Multi-value field match: OR case-insensitive substring per entry.
+  // Empty array (or blank-only) means "no filter" -> pass. Accepts a legacy
+  // plain string for backward compat (treated as one entry).
+  function matchesAny(field, values) {
+    var list = Array.isArray(values) ? values : (values ? [values] : []);
+    var needles = [];
+    list.forEach(function (entry) {
+      var needle = (entry === null || entry === undefined ? "" : String(entry)).trim().toLowerCase();
+      if (needle) needles.push(needle);
+    });
+    if (needles.length === 0) return true;
+    var hay = norm(field);
+    for (var i = 0; i < needles.length; i++) {
+      if (hay.indexOf(needles[i]) !== -1) return true;
+    }
+    return false;
+  }
+
   // Field filters combine with AND semantics; blank filters are ignored.
+  // ticket/app are arrays (OR inside, AND between); tipo stays single.
   function matchesFilters(row, criteria) {
     criteria = criteria || {};
-    if (criteria.ticket && !contains(row.ticket, criteria.ticket.trim().toLowerCase())) return false;
-    if (criteria.app && !contains(row.nombre_app, criteria.app.trim().toLowerCase())) return false;
+    if (!matchesAny(row.ticket, criteria.ticket)) return false;
+    if (!matchesAny(row.nombre_app, criteria.app)) return false;
     if (criteria.tipo && !contains(row.tipo_cambio, criteria.tipo.trim().toLowerCase())) return false;
     if (!matchesWindow(row, criteria.desde || "", criteria.hasta || "")) return false;
     return true;
@@ -119,11 +138,32 @@ window.TriageSearch = (function () {
     });
   }
 
+  // Reads multi-select chips first (the real value), plus any pending
+  // free text still in the input (typed but not yet added with Enter).
+  function selectedWithPending(kind, inputId) {
+    var out = [];
+    if (window.TriageFilters && typeof window.TriageFilters.getSelected === "function") {
+      window.TriageFilters.getSelected(kind).forEach(function (entry) {
+        var clean = (entry === null || entry === undefined ? "" : String(entry)).trim();
+        if (clean) out.push(clean);
+      });
+    }
+    var pending = val(inputId).trim();
+    if (pending) {
+      var dup = false;
+      for (var i = 0; i < out.length; i++) {
+        if (out[i].toLowerCase() === pending.toLowerCase()) { dup = true; break; }
+      }
+      if (!dup) out.push(pending);
+    }
+    return out;
+  }
+
   function getCriteria() {
     return {
       q: val("q"),
-      ticket: val("f-ticket"),
-      app: val("f-app"),
+      ticket: selectedWithPending("ticket", "f-ticket"),
+      app: selectedWithPending("app", "f-app"),
       tipo: val("f-tipo"),
       desde: parseWindowBound(val("f-desde-date"), val("f-desde-time"), false),
       hasta: parseWindowBound(val("f-hasta-date"), val("f-hasta-time"), true),
@@ -145,6 +185,14 @@ window.TriageSearch = (function () {
       total: rows.length,
       windowActive: windowActive,
     });
+    // Shareable-state hook (share.js): live URL + active-filter chips render
+    // after every apply. Guarded + isolated so filtering never breaks when
+    // share.js is absent or fails; matching logic above stays untouched.
+    if (window.TriageShare && typeof window.TriageShare.afterApply === "function") {
+      try {
+        window.TriageShare.afterApply(criteria);
+      } catch (e) { /* advisory-only: filtering already rendered */ }
+    }
   }
 
   function resetFilters() {
@@ -153,6 +201,14 @@ window.TriageSearch = (function () {
       var el = document.getElementById(id);
       if (el) el.value = "";
     });
+    // Multi-select chips live in filters.js: clear + repaint there, then
+    // close any open dropdown (clearSelected already repaints the chips).
+    if (window.TriageFilters && typeof window.TriageFilters.clearSelected === "function") {
+      window.TriageFilters.clearSelected();
+    }
+    if (window.TriageFilters && typeof window.TriageFilters.closeAll === "function") {
+      window.TriageFilters.closeAll();
+    }
     syncTimeHints();
   }
 
@@ -198,6 +254,7 @@ window.TriageSearch = (function () {
     applyFilters: applyFilters,
     resetFilters: resetFilters,
     refresh: refresh,
+    getCriteria: getCriteria,
     matchesQuery: matchesQuery,
     matchesFilters: matchesFilters,
     parseWindowBound: parseWindowBound,

@@ -49,11 +49,12 @@
     return theme === LIGHT ? "\u2600" : "\u263E";
   }
 
-  /* Reflects the active theme on the toggle button (text + ARIA state). */
+  /* Reflects the active theme on the toggle button (icon only + ARIA state).
+   * The accessible name carries the Claro/Oscuro wording via aria-label. */
   function paintButton(btn, theme) {
     if (!btn) return;
     var next = theme === LIGHT ? DARK : LIGHT;
-    btn.textContent = iconFor(theme) + " " + labelFor(theme);
+    btn.textContent = iconFor(theme);
     btn.setAttribute("aria-pressed", theme === DARK ? "true" : "false");
     btn.setAttribute("aria-label", "Tema actual: " + labelFor(theme).toLowerCase() +
       ". Cambiar a tema " + labelFor(next).toLowerCase() + ".");

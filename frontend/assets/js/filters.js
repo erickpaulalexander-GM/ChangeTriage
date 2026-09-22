@@ -8,6 +8,8 @@
  *   incident-range logic, and export wiring stay untouched).
  * - Free text stays allowed in both comboboxes (partial substring search);
  *   picking a suggestion just fills the input. "Todas" clears the app field.
+ * - Ops-density single bar: selection COUNT lives in the input placeholders
+ *   ("App (2)" / "Ticket (1)"); the only chip source is #active-filters.
  * - Bundle-safe: stdlib-free, no imports, no closing-tag literals.
  */
 "use strict";
@@ -19,6 +21,169 @@ window.TriageFilters = (function () {
   var EMPTY_STATE = "Sin coincidencias";
 
   var state = { tickets: [], apps: [], tipos: [] };
+
+  // Multi-select value store: the real filter value lives here, inputs stay
+  // as query boxes (input.value === "" after each pick).
+  var selected = { ticket: [], app: [] };
+
+  function kindKey(kind) {
+    return kind === "app" ? "app" : "ticket";
+  }
+
+  function cleanVal(value) {
+    return text(value).trim();
+  }
+
+  // Copy of the current selection for one combo (search.js/reset read this).
+  function getSelected(kind) {
+    return selected[kindKey(kind)].slice();
+  }
+
+  function isSelected(kind, value) {
+    var needle = cleanVal(value).toLowerCase();
+    if (!needle) return false;
+    var list = selected[kindKey(kind)];
+    for (var i = 0; i < list.length; i++) {
+      if (text(list[i]).toLowerCase() === needle) return true;
+    }
+    return false;
+  }
+
+  function renderChips(kind) {
+    if (typeof document === "undefined" || !document.getElementById) return;
+    // Single chip source is #active-filters (share.js): the combo inputs show
+    // the selection COUNT in their placeholder instead (App (Todas) -> App (2)).
+    // renderChips stays exported + functional as a defensive no-op when the
+    // legacy in-combo boxes are absent from the markup.
+    syncPlaceholder(kind);
+    var key = kindKey(kind);
+    var box = document.getElementById(key === "app" ? "f-app-chips" : "f-ticket-chips");
+    if (!box) return;
+    while (box.firstChild) box.removeChild(box.firstChild);
+    selected[key].forEach(function (value) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      var label = document.createElement("span");
+      label.className = "chip-label";
+      label.textContent = value;
+      chip.appendChild(label);
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip-x";
+      btn.setAttribute("aria-label", "Quitar " + value);
+      btn.textContent = "\u00d7";
+      btn.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+      });
+      btn.addEventListener("click", function () {
+        removeValue(key, value);
+      });
+      chip.appendChild(btn);
+      box.appendChild(chip);
+    });
+  }
+
+  function renderAllChips() {
+    renderChips("ticket");
+    renderChips("app");
+  }
+
+  // Placeholder text carrying the selection count for one combo:
+  // app empty -> "App (Todas)", app N -> "App (N)";
+  // ticket empty -> "Ticket", ticket N -> "Ticket (N)". Pure (no DOM) so it
+  // is unit-testable; syncPlaceholder applies it to the live inputs.
+  function placeholderFor(kind, count) {
+    var key = kindKey(kind);
+    var n = typeof count === "number" ? count : selected[key].length;
+    if (key === "app") return n > 0 ? "App (" + n + ")" : "App (Todas)";
+    return n > 0 ? "Ticket (" + n + ")" : "Ticket";
+  }
+
+  function syncPlaceholder(kind) {
+    if (typeof document === "undefined" || !document.getElementById) return;
+    var keys = kind === "app" || kind === "ticket"
+      ? [kindKey(kind)]
+      : ["ticket", "app"];
+    keys.forEach(function (key) {
+      var input = document.getElementById(key === "app" ? "f-app" : "f-ticket");
+      if (input && input.setAttribute) {
+        input.setAttribute("placeholder", placeholderFor(key));
+      }
+    });
+  }
+
+  // Toggle insert/remove; returns true when the value ends up selected.
+  function toggleValue(kind, value) {
+    var key = kindKey(kind);
+    var clean = cleanVal(value);
+    if (!clean) return false;
+    var list = selected[key];
+    var needle = clean.toLowerCase();
+    for (var i = 0; i < list.length; i++) {
+      if (text(list[i]).toLowerCase() === needle) {
+        list.splice(i, 1);
+        renderChips(key);
+        return false;
+      }
+    }
+    list.push(clean);
+    renderChips(key);
+    return true;
+  }
+
+  function removeValue(kind, value) {
+    var key = kindKey(kind);
+    var needle = cleanVal(value).toLowerCase();
+    var list = selected[key];
+    for (var i = 0; i < list.length; i++) {
+      if (text(list[i]).toLowerCase() === needle) list.splice(i, 1);
+    }
+    renderChips(key);
+    refreshOpenList(key);
+    apply();
+  }
+
+  // Exposed for search.js reset: empties one combo (or both) + repaints.
+  function clearSelected(kind) {    if (kind === "ticket" || kind === "app") {
+      selected[kindKey(kind)] = [];
+      renderChips(kind);
+    } else {
+      selected.ticket = [];
+      selected.app = [];
+      renderAllChips();
+    }
+  }
+
+  // Shareable-state restore (share.js): replaces one combo's selection with
+  // an explicit value list (deduped, blanks dropped) + repaints chips and the
+  // open dropdown. Does NOT apply filters — the caller applies once after
+  // setting every control.
+  function setSelected(kind, values) {
+    var key = kindKey(kind);
+    var list = Array.isArray(values) ? values : [];
+    var out = [];
+    list.forEach(function (entry) {
+      var clean = cleanVal(entry);
+      if (!clean) return;
+      var needle = clean.toLowerCase();
+      for (var i = 0; i < out.length; i++) {
+        if (text(out[i]).toLowerCase() === needle) return;
+      }
+      out.push(clean);
+    });
+    selected[key] = out;
+    renderChips(key);
+    refreshOpenList(key);
+  }
+
+  // After a chip removal, repaint the open dropdown so checks stay in sync.
+  function refreshOpenList(kind) {
+    if (typeof document === "undefined" || !document.getElementById) return;
+    var key = kindKey(kind);
+    var input = document.getElementById(key === "app" ? "f-app" : "f-ticket");
+    var list = document.getElementById(key === "app" ? "f-app-list" : "f-ticket-list");
+    if (input && list && isOpen(list)) openList(key, input, list);
+  }
 
   function text(value) {
     return value === null || value === undefined ? "" : String(value);
@@ -147,9 +312,18 @@ window.TriageFilters = (function () {
         var item = document.createElement("li");
         item.className = "combo-option";
         item.setAttribute("role", "option");
-        item.setAttribute("aria-selected", "false");
+        var picked = isSelected(kind, value);
+        item.setAttribute("aria-selected", picked ? "true" : "false");
         item.setAttribute("data-value", value);
-        item.textContent = value;
+        var mark = document.createElement("span");
+        mark.className = "tick";
+        mark.setAttribute("aria-hidden", "true");
+        mark.textContent = picked ? "\u2713" : "";
+        item.appendChild(mark);
+        var label = document.createElement("span");
+        label.className = "combo-label";
+        label.textContent = value;
+        item.appendChild(label);
         item.addEventListener("mousedown", function (event) {
           event.preventDefault();
           chooseValue(kind, input, list, value);
@@ -186,15 +360,41 @@ window.TriageFilters = (function () {
     });
   }
 
-  // A pick fills the field ("Todas" clears the app field) and delegates to
-  // the central filter; free text typed without picking filters as-is.
+  // A pick toggles the value in `selected` ("Todas" clears the app combo);
+  // the input stays a query box (""). Free text typed without picking is
+  // added on Enter by the keydown handler below.
   function chooseValue(kind, input, list, value) {
     if (!input) return;
-    if (kind === "app" && value === ALL_APPS) input.value = "";
-    else input.value = value;
-    closeList(input, list);
+    var key = kindKey(kind);
+    if (key === "app" && cleanVal(value) === ALL_APPS) {
+      clearSelected("app");
+      input.value = "";
+      closeList(input, list);
+      input.focus();
+      apply();
+      return;
+    }
+    toggleValue(key, value);
+    input.value = "";
+    // Keep the dropdown open for multi-pick, repainted with fresh checks.
+    openList(key, input, list);
     input.focus();
     apply();
+  }
+
+  // Enter on free text adds it as a chip (no suggestion chosen).
+  function addFreeText(kind, input, list) {
+    var clean = cleanVal(input.value);
+    if (!clean) return false;
+    if (kindKey(kind) === "app" && clean === ALL_APPS) {
+      clearSelected("app");
+    } else if (!isSelected(kind, clean)) {
+      toggleValue(kind, clean);
+    }
+    input.value = "";
+    openList(kindKey(kind), input, list);
+    apply();
+    return true;
   }
 
   function childOptions(list) {
@@ -207,9 +407,10 @@ window.TriageFilters = (function () {
   function markActive(list, index) {
     var items = childOptions(list);
     list.setAttribute("data-active", String(index));
+    // Highlight only: aria-selected reflects the multi-select check state
+    // set in renderList and must not be overwritten by keyboard focus.
     items.forEach(function (item, i) {
       item.classList.toggle("active", i === index);
-      item.setAttribute("aria-selected", i === index ? "true" : "false");
     });
     var current = items[index];
     if (current && typeof current.scrollIntoView === "function") {
@@ -263,7 +464,20 @@ window.TriageFilters = (function () {
         event.preventDefault();
         moveActive(kind, input, list, -1);
       } else if (event.key === "Enter") {
-        if (isOpen(list) && chooseActive(kind, input, list)) event.preventDefault();
+        if (isOpen(list) && chooseActive(kind, input, list)) {
+          event.preventDefault();
+        } else if (cleanVal(input.value)) {
+          event.preventDefault();
+          addFreeText(kind, input, list);
+        }
+      } else if (event.key === "Backspace") {
+        if (!cleanVal(input.value)) {
+          var current = getSelected(kind);
+          if (current.length > 0) {
+            event.preventDefault();
+            removeValue(kind, current[current.length - 1]);
+          }
+        }
       } else if (event.key === "Escape") {
         if (isOpen(list)) {
           event.preventDefault();
@@ -279,6 +493,7 @@ window.TriageFilters = (function () {
     wireCombo("ticket", "f-ticket", "f-ticket-list");
     wireCombo("app", "f-app", "f-app-list");
     refreshOptions();
+    renderAllChips();
     if (document.addEventListener) {
       // Outside click closes any open dropdown (drawer Escape stays owned
       // by drawer.js; this only reacts while a suggestion list is open).
@@ -319,6 +534,13 @@ window.TriageFilters = (function () {
     filterOptions: filterOptions,
     refreshOptions: refreshOptions,
     closeAll: closeAll,
+    getSelected: getSelected,
+    setSelected: setSelected,
+    removeValue: removeValue,
+    clearSelected: clearSelected,
+    renderChips: renderChips,
+    placeholderFor: placeholderFor,
+    syncPlaceholder: syncPlaceholder,
     getState: function () { return state; },
     MAX_OPTIONS: MAX_OPTIONS,
     ALL_APPS: ALL_APPS,

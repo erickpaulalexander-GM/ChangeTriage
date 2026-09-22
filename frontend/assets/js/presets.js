@@ -63,6 +63,14 @@ window.TriagePresets = (function () {
     return Math.round((db - da) / 86400000) + 1;
   }
 
+  // "2026-09-20" -> "20 Sep" via daypick helper when available, else raw.
+  function fmtDayMon(ymd) {
+    if (window.TriageDaypick && typeof window.TriageDaypick.formatDay === "function") {
+      return window.TriageDaypick.formatDay(ymd);
+    }
+    return ymd || "";
+  }
+
   function windowBounds() {
     var min = "", max = "";
     getRows().forEach(function (row) {
@@ -112,7 +120,13 @@ window.TriagePresets = (function () {
     if (!btn) return;
     var bounds = windowBounds();
     if (bounds.min && bounds.max) {
-      btn.textContent = "Toda la ventana (" + dayCount(bounds.min, bounds.max) + " días)";
+      // Ops density: short visible label; full range stays in the tooltip.
+      btn.textContent = "Toda la ventana";
+      if (btn.setAttribute) {
+        btn.setAttribute("title", fmtDayMon(bounds.min) + " → " +
+          fmtDayMon(bounds.max) + " (" +
+          dayCount(bounds.min, bounds.max) + " días)");
+      }
     } else {
       btn.textContent = "Toda la ventana";
     }
