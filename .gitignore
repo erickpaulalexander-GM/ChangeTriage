@@ -11,9 +11,15 @@ workspace/output/data.json
 workspace/output/data/*
 workspace/output/triage.html
 !workspace/output/data/.gitkeep
+# SharePoint publish copies (regenerate via pipeline; never commit rows).
+frontend/data/*
+!frontend/data/.gitkeep
 
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
+
+# Local agent tooling (skill registry, scratch).
+.atl/
