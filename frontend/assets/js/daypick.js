@@ -434,15 +434,15 @@ window.TriageDaypick = (function () {
     if (typeof document === "undefined" || !document.getElementById) return;
     SIDES.forEach(wireSide);
     closeAll();
-    // Whole-card click opens the card's dropdown (time-input interaction is
-    // left alone so the clock stays editable).
+    // Whole-card click opens the card's dropdown (timepick interaction is
+    // left alone so the clock dropdown stays independent).
     Array.prototype.forEach.call(
       document.querySelectorAll ? document.querySelectorAll(".window-block") : [],
       function (block) {
         block.addEventListener("click", function (event) {
           var target = event.target;
           var interactive = target && typeof target.closest === "function"
-            ? target.closest("input, select, textarea, a, .daypick-list")
+            ? target.closest("input, select, textarea, a, .daypick-list, .timepick")
             : null;
           if (interactive) return;
           var pick = block.getAttribute("data-window") || "desde";

@@ -98,6 +98,9 @@ window.TriagePresets = (function () {
     if (window.TriageDaypick && typeof window.TriageDaypick.syncFromInputs === "function") {
       window.TriageDaypick.syncFromInputs();
     }
+    if (window.TriageTimepick && typeof window.TriageTimepick.syncFromInputs === "function") {
+      window.TriageTimepick.syncFromInputs();
+    }
     // Programmatic .value sets fire no events either: refresh the T4 empty-
     // time hint overlay explicitly (values stay "" = día completo).
     if (window.TriageSearch && typeof window.TriageSearch.syncTimeHints === "function") {

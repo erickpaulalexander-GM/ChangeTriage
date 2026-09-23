@@ -347,9 +347,8 @@ html[data-theme="light"] .combo-list { box-shadow: 0 8px 24px rgba(23, 32, 51, 0
   outline: none;
 }
 /* Whole-row click opens the day dropdown: pointer affordance kept on the
- * layout grouping, native cursor kept on the time input itself. */
+ * layout grouping. */
 .window-block { cursor: pointer; }
-.window-block input[type="time"] { cursor: auto; }
 .window-inputs {
   display: flex;
   flex-wrap: nowrap;
@@ -363,11 +362,6 @@ html[data-theme="light"] .combo-list { box-shadow: 0 8px 24px rgba(23, 32, 51, 0
   min-width: 0;
   max-width: 100%;
 }
-.window-inputs input[type="time"] {
-  height: 30px;
-  padding: 0.2rem 0.3rem;
-  font-size: 0.75rem;
-}
 /* Compact visible range markers (aria-hidden in markup; accessible names
  * stay on the sr-only labels + input aria-labels). */
 .window-sep {
@@ -378,48 +372,22 @@ html[data-theme="light"] .combo-list { box-shadow: 0 8px 24px rgba(23, 32, 51, 0
   letter-spacing: 0.05em;
   color: var(--muted);
 }
-/* Available-days dropdown + time input: the .daypick button mimics the
- * toolbar input look (Light/Dark via vars only) and its option list floats
- * like the ticket/app suggestion lists — compact on desktop (matches the
- * button width), full-width on mobile with the stacked card. Time inputs
- * carry no emoji chip: the native picker indicator is the single clock icon.
- * The selected day shows a checkmark via the .tick span. */
+/* Available-days dropdown + hourly time dropdown: both buttons mimic the
+ * toolbar input look (Light/Dark via vars only) and their option lists float
+ * like the ticket/app suggestion lists — compact on desktop, full-width on
+ * mobile with the stacked card. The clock button carries the single 🕒 chip
+ * (no native picker indicator anymore). The selected entry shows a
+ * checkmark via the .tick span. */
 .window-inputs .daypick {
   position: relative;
   flex: 0 1 110px;
   min-width: 0;
 }
-.window-inputs .time-wrap {
+.window-inputs .timepick {
   position: relative;
   display: inline-flex;
-  flex: 0 1 84px;
+  flex: 0 1 92px;
   min-width: 70px;
-}
-.window-inputs .time-wrap input[type="time"] {
-  width: 100%;
-}
-/* T4 visual-only 00:00/23:59 hint: the input value stays EMPTY (vacío = día
- * completo via parseWindowBound) while the wrapper overlay shows the assumed
- * bound in muted text. Pseudo-element only — never exposed to AT, input
- * aria-label/title carry the semantics. Hidden on focus so the native --:--
- * editor is visible while typing; pointer-events none so clicks reach input. */
-.time-wrap[data-empty="true"]::after {
-  content: attr(data-hint);
-  position: absolute;
-  top: 50%;
-  left: 0.5rem;
-  right: 1.9rem;
-  transform: translateY(-50%);
-  background: var(--surface-alt);
-  color: var(--muted);
-  font: inherit;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  pointer-events: none;
-}
-.time-wrap[data-empty="true"]:focus-within::after {
-  opacity: 0;
 }
 .daypick-btn {
   width: 100%;
@@ -496,7 +464,7 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
   .window-group { flex: 1 1 100%; }
   .window-inputs { flex-wrap: wrap; }
   .window-inputs .daypick { flex: 1 1 100%; min-width: 0; }
-  .window-inputs .time-wrap { flex: 1 1 100%; min-width: 0; }
+  .window-inputs .timepick { flex: 1 1 100%; min-width: 0; }
   .daypick-list { min-width: 0; }
 }
 /* Quick-range presets: inline mini pills (Hoy|Ayer|Toda). Labels intact,

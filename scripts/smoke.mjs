@@ -571,6 +571,50 @@ check("daypick-bundle-safe", /<\/script/i.test(daypickCode), false);
 
 console.log(`SMOKE_DAYPICK_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
 
+/* ---- Timepick checks: Desde/Hasta hour dropdowns offer "Día completo" +
+ * the 24 exact hours on the REAL timepick.js with a fake DOM; the picked
+ * hour lands in the same hidden #f-desde-time / #f-hasta-time inputs the
+ * native clocks used, so search/presets/share keep working untouched. */
+
+const timepickCode = readFileSync(join(jsDir, "timepick.js"), "utf8");
+
+function makeTimepickDocument() {
+  const els = new Map();
+  ["f-desde-time", "f-hasta-time", "f-desde-hour", "f-hasta-hour",
+    "f-desde-hour-list", "f-hasta-hour-list"].forEach((id) => els.set(id, fakeNode()));
+  return { readyState: "complete",
+    getElementById(id) { return els.get(id) || null; },
+    createElement() { return fakeNode(); },
+    addEventListener() {},
+    __els: els };
+}
+
+const timeDoc = makeTimepickDocument();
+const timeFactory = new Function("window", "document",
+  `${timepickCode}; return window.TriageTimepick;`);
+const timepick = timeFactory({}, timeDoc);
+check("timepick-module-loads", !!timepick, true);
+check("timepick-hours-count", timepick.HOURS.length, 24);
+check("timepick-hours-first", timepick.HOURS[0], "00:00");
+check("timepick-hours-last", timepick.HOURS[23], "23:00");
+// Button label mirrors the hidden input; empty shows the placeholder.
+timeDoc.__els.get("f-desde-time").value = "14:00";
+timepick.syncFromInputs();
+check("timepick-label-picked", timeDoc.__els.get("f-desde-hour").textContent, "14:00");
+timeDoc.__els.get("f-desde-time").value = "";
+timepick.syncFromInputs();
+check("timepick-label-empty", timeDoc.__els.get("f-desde-hour").textContent, "Hora");
+// Markup: clock buttons + lists + hidden inputs, no native time inputs left.
+check("timepick-script-tag", /src="assets\/js\/timepick\.js"/.test(html), true);
+check("timepick-markup-desde", /id="f-desde-hour"/.test(html) && /id="f-desde-hour-list"/.test(html)
+  && /id="f-desde-time" type="hidden"/.test(html), true);
+check("timepick-markup-hasta", /id="f-hasta-hour"/.test(html) && /id="f-hasta-hour-list"/.test(html)
+  && /id="f-hasta-time" type="hidden"/.test(html), true);
+check("timepick-no-native-time", /type="time"/.test(html), false);
+check("timepick-bundle-safe", /<\/script/i.test(timepickCode), false);
+
+console.log(`SMOKE_TIMEPICK_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
+
 /* ---- Shareable-filter-state checks: URL codec roundtrip (build/parse),
  * repeated-key getAll, tolerant parse, markup (copy-link, active-filters,
  * chips below inputs, script tag), Teams header with active filters, and
