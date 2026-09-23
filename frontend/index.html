@@ -11,6 +11,7 @@
   <script src="assets/js/filters.js" defer></script>
   <script src="assets/js/presets.js" defer></script>
   <script src="assets/js/daypick.js" defer></script>
+  <script src="assets/js/timepick.js" defer></script>
   <script src="assets/js/share.js" defer></script>
   <script src="assets/js/export.js" defer></script>
   <script src="assets/js/app.js" defer></script>
@@ -67,7 +68,14 @@
                 <ul class="daypick-list" id="f-desde-day-list" role="listbox"
                   aria-label="Seleccionar día de inicio" hidden></ul>
               </div>
-              <span class="time-wrap" data-hint="00:00"><input id="f-desde-time" type="time" step="1800" placeholder="Desde 00:00" aria-label="Desde implementación: hora (hora de Lima)" title="Vacía = día completo desde las 00:00"></span>
+              <span class="timepick" data-timepick="desde">
+                <input id="f-desde-time" type="hidden" value="">
+                <button type="button" class="daypick-btn" id="f-desde-hour"
+                  aria-haspopup="listbox" aria-expanded="false" aria-controls="f-desde-hour-list"
+                  aria-label="Desde implementación: hora (hora de Lima)" title="Vacía = día completo desde las 00:00"><span class="daypick-icon" aria-hidden="true">🕒</span><span class="daypick-text">Hora</span><span class="daypick-chev" aria-hidden="true">▾</span></button>
+                <ul class="daypick-list" id="f-desde-hour-list" role="listbox"
+                  aria-label="Seleccionar hora de inicio" hidden></ul>
+              </span>
             </div>
           </div>
           <div class="window-block" data-window="hasta">
@@ -82,7 +90,14 @@
                 <ul class="daypick-list" id="f-hasta-day-list" role="listbox"
                   aria-label="Seleccionar día de fin" hidden></ul>
               </div>
-              <span class="time-wrap" data-hint="23:59"><input id="f-hasta-time" type="time" step="1800" placeholder="Hasta 23:59" aria-label="Hasta implementación: hora (hora de Lima)" title="Vacía = día completo hasta las 23:59"></span>
+              <span class="timepick" data-timepick="hasta">
+                <input id="f-hasta-time" type="hidden" value="">
+                <button type="button" class="daypick-btn" id="f-hasta-hour"
+                  aria-haspopup="listbox" aria-expanded="false" aria-controls="f-hasta-hour-list"
+                  aria-label="Hasta implementación: hora (hora de Lima)" title="Vacía = día completo hasta las 23:59"><span class="daypick-icon" aria-hidden="true">🕒</span><span class="daypick-text">Hora</span><span class="daypick-chev" aria-hidden="true">▾</span></button>
+                <ul class="daypick-list" id="f-hasta-hour-list" role="listbox"
+                  aria-label="Seleccionar hora de fin" hidden></ul>
+              </span>
             </div>
           </div>
           <div class="presets" role="group" aria-label="Rango rápido de implementación">

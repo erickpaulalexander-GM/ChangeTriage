@@ -124,6 +124,9 @@ window.TriageShare = (function () {
     if (window.TriageDaypick && typeof window.TriageDaypick.syncFromInputs === "function") {
       try { window.TriageDaypick.syncFromInputs(); } catch (e) { /* advisory */ }
     }
+    if (window.TriageTimepick && typeof window.TriageTimepick.syncFromInputs === "function") {
+      try { window.TriageTimepick.syncFromInputs(); } catch (e) { /* advisory */ }
+    }
     if (window.TriageSearch && typeof window.TriageSearch.syncTimeHints === "function") {
       try { window.TriageSearch.syncTimeHints(); } catch (e) { /* advisory */ }
     }
