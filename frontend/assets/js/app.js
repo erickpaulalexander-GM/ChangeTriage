@@ -54,13 +54,13 @@
     return p.d.replace(/^0/, "") + " " + (MONTHS_ES[+p.mo - 1] || p.mo);
   }
 
-  // Source-workbook timestamp for the header slot: "🕒 21 Sep · 15:55"
-  // (no "Actualizado" word per spec). Source date wins; legacy payloads
-  // fall back to the build time; "🕒 —" while unknown.
+  // Source-workbook timestamp for the results-bar slot: "21 Sep · 15:55".
+  // Source date wins; legacy payloads fall back to the build time; "—"
+  // while unknown. Staleness is signaled separately with ⚠️, no clock icon.
   function fmtUpdated(wall) {
     var p = wallParts(wall);
-    if (!p) return "🕒 —";
-    return "🕒 " + p.d.replace(/^0/, "") + " " +
+    if (!p) return "—";
+    return p.d.replace(/^0/, "") + " " +
       (MONTHS_ES[+p.mo - 1] || p.mo) + " · " + p.h + ":" + p.mi;
   }
 
