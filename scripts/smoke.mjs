@@ -623,6 +623,9 @@ console.log(`SMOKE_TIMEPICK_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`)
 const shareCode = readFileSync(join(jsDir, "share.js"), "utf8");
 check("share-bundle-safe", /<\/script/i.test(shareCode), false);
 check("share-script-tag", /src="assets\/js\/share\.js"/.test(html), true);
+const brandSide = /<div class="brand-side">[\s\S]*?<\/div>/.exec(html);
+check("updated-slot-in-results-bar", /id="kyndryl-updated"/.test(html)
+  && !(brandSide && /kyndryl-updated/.test(brandSide[0])), true);
 check("share-copy-link-btn", /id="copy-link"/.test(html) && /Copiar enlace filtrado/.test(html), true);
 check("share-active-filters-div", /id="active-filters"/.test(html), true);
 check("share-active-filters-hidden-empty", /id="active-filters"[^>]*hidden/.test(html), true);

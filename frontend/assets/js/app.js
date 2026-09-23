@@ -23,7 +23,8 @@
   // Compact-layout header slots (C1): three live indicators fed from
   // data.json only (row count, generated_at/source_modified_at, min/max
   // implementation window), rendered into #results-count, #kyndryl-updated
-  // and #window-range since the opbar was removed. Lima wall-clock
+  // (results bar now, plus a ⚠️ when the data is over 1h old) and
+  // #window-range since the opbar was removed. Lima wall-clock
   // formatting slices the "YYYY-MM-DDTHH:MM:SS" wall text directly — never
   // `new Date(str)` on naive strings, never UTC conversion — so the slots
   // can never shift a day against the search.js overlap logic.
@@ -93,8 +94,19 @@
     return fmtDayMon(min) + " → " + fmtDayMon(max);
   }
 
+  // Stale-data alert: when the shown source date is over 1h old, a ⚠️
+  // icon (only the icon, with the detail in the title tooltip) warns the
+  // data is not fresh. NaN/unparsable dates show no icon.
+  var STALE_MS = 3600000;
+
+  function staleSuffix(iso) {
+    var t = Date.parse(iso || "");
+    if (isNaN(t) || Date.now() - t <= STALE_MS) return { mark: "", note: "" };
+    var hours = Math.floor((Date.now() - t) / STALE_MS);
+    return { mark: " ⚠️", note: " · Data con +" + hours + "h, desactualizada" };
+  }
   // Provenance tooltip: always states the build time so it is not lost, and
-  // names the source workbook when known. The header date describes the
+  // names the source workbook when known. The shown date describes the
   // SOURCE workbook, not the build, so a rebuild without a new workbook
   // cannot claim fresh data (false confidence); the tooltip keeps the build
   // time discoverable without letting it masquerade as the data date.
@@ -108,7 +120,7 @@
   // Compact-layout slots (C1): the opbar is gone. Count lives in
   // #results-count above the list ("12 resultados de 913 cambios"; always
   // visible/total — unfiltered that's "913 resultados de 913 cambios"),
-  // the source date under the Kyndryl logo, the range in #window-range.
+  // the source date beside it in .results-bar, the range in #window-range.
   function updateOpbar(visible) {
     var total = state.rows.length;
     var shown = (typeof visible === "number") ? visible : total;
@@ -118,8 +130,10 @@
       // Source workbook date wins; legacy payloads fall back to the build time.
       var buildWall = toWall(state.meta.generatedAt);
       var shownWall = toWall(state.meta.sourceModifiedAt) || buildWall;
-      els.updated.textContent = fmtUpdated(shownWall);
-      els.updated.title = provenanceTitle(buildWall);
+      var shownIso = state.meta.sourceModifiedAt || state.meta.generatedAt;
+      var stale = staleSuffix(shownIso);
+      els.updated.textContent = fmtUpdated(shownWall) + stale.mark;
+      els.updated.title = provenanceTitle(buildWall) + stale.note;
     }
     if (els.range) els.range.textContent = rangeText();
   }

@@ -24,8 +24,7 @@
       <p class="subtitle">Portal de Validación de Cambios en Producción</p>
     </div>
     <div class="brand-side">
-      <img class="logo" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
-      <div class="kyndryl-meta"><span id="kyndryl-updated">🕒 —</span></div>
+      <img class="logo logo-kyndryl" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
     </div>
     <button type="button" id="theme-toggle" class="theme-toggle"
       aria-pressed="true" aria-label="Tema actual: oscuro. Cambiar a tema claro.">&#9789;</button>
@@ -120,7 +119,10 @@
 
     <div class="active-filters" id="active-filters" hidden
       aria-label="Filtros activos" aria-live="polite"></div>
-    <p class="results-count" id="results-count" role="status" aria-live="polite">Cargando cambios…</p>
+    <div class="results-bar">
+      <p class="results-count" id="results-count" role="status" aria-live="polite">Cargando cambios…</p>
+      <span class="kyndryl-meta"><span id="kyndryl-updated">🕒 —</span></span>
+    </div>
     <ul class="results" id="results" aria-label="Change results"></ul>
 
     <section class="empty" id="empty" hidden>
