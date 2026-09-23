@@ -72,6 +72,7 @@ body {
 .site-header h1 { margin: 0; font-size: 1.4rem; }
 .subtitle { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.8rem; }
 .logo { height: 30px; max-width: 140px; object-fit: contain; }
+.logo-kyndryl { height: 42px; max-width: 190px; }
 /* Compact layout (C1): source-date slot stacked under the Kyndryl logo
  * (right-aligned column so the header stays at ~72px). */
 .brand-side {
@@ -79,6 +80,15 @@ body {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.1rem;
+}
+/* Results bar: count left, source-date right (moved down from the header
+ * so the freshness signal sits with the data it describes). */
+.results-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin: 0.75rem 0 0;
 }
 .kyndryl-meta {
   color: var(--muted);
@@ -114,7 +124,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
  * in #results-count (above the list), #kyndryl-updated (header) and
  * #window-range (window module). The count line doubles as the live region. */
 .results-count {
-  margin: 0.75rem 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 0.85rem;
 }
@@ -171,7 +181,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
   main { padding: 1rem 0.75rem; }
   .toolbar { margin-top: 0.5rem; }
   .results { margin-top: 0.5rem; }
-  .results-count { margin-top: 0.5rem; }
+  .results-bar { margin-top: 0.5rem; }
 }
 
 /* Filter comboboxes: positioned wrapper so the suggestion list floats above
