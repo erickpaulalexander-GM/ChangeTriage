@@ -8,15 +8,15 @@
  * Compat: the picked hour is stored as "HH:MM" in the SAME hidden inputs the
  * native clocks used (#f-desde-time / #f-hasta-time), and input/change events
  * are dispatched so search.js (parseWindowBound via applyFilters),
- * presets.js and share.js keep working untouched. An empty value keeps the
- * legacy whole-day semantics (desde = from 00:00, hasta = until 23:59).
+ * presets.js and share.js keep working untouched. No hour picked keeps the
+ * legacy whole-day semantics (desde = from 00:00, hasta = until 23:59), so
+ * the list carries only the 24 hours — no "whole day" row needed.
  */
 "use strict";
 
 window.TriageTimepick = (function () {
   var SIDES = ["desde", "hasta"];
   var PLACEHOLDER = "Hora";
-  var CLEAR_LABEL = "Día completo";
 
   var HOURS = [];
   (function () {
@@ -109,8 +109,7 @@ window.TriageTimepick = (function () {
   function paintSelection(side, list) {
     var value = selectedOf(side);
     childOptions(list).forEach(function (item) {
-      var itemValue = item.getAttribute("data-value") || "";
-      var on = itemValue === value || (itemValue === "" && !value);
+      var on = (item.getAttribute("data-value") || "") === value && !!value;
       item.setAttribute("aria-selected", on ? "true" : "false");
       var tick = item.querySelector ? item.querySelector(".tick") : null;
       if (tick) tick.hidden = !on;
@@ -139,14 +138,6 @@ window.TriageTimepick = (function () {
     if (!list || typeof document === "undefined" || !document.createElement) return;
     while (list.firstChild) list.removeChild(list.firstChild);
     list.setAttribute("data-active", "-1");
-    var clear = optionRow("", CLEAR_LABEL);
-    (function (sideCopy, node) {
-      node.addEventListener("mousedown", function (event) {
-        event.preventDefault();
-        choose(sideCopy, "");
-      });
-    })(side, clear);
-    list.appendChild(clear);
     HOURS.forEach(function (hour) {
       var node = optionRow(hour, hour);
       (function (sideCopy, value, row) {
@@ -220,6 +211,8 @@ window.TriageTimepick = (function () {
     var hidden = el(hiddenId(side));
     var btn = el(btnId(side));
     if (!hidden || (value !== "" && !isHour(value))) return;
+    // Re-picking the marked hour clears back to whole-day.
+    if (value !== "" && value === selectedOf(side)) value = "";
     hidden.value = value;
     close(side);
     syncFromInputs();
