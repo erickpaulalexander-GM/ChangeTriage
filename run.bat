@@ -18,10 +18,21 @@ if errorlevel 1 (
   goto :fail
 )
 
+REM 0. Resolve paths from config.yaml (DEV defaults or absolute PROD paths).
+REM    backend.config is stdlib-only, so plain python needs no downloads.
+for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).input_dir)"') do set INPUT_DIR=%%P
+if errorlevel 1 (
+  echo [ERROR] Could not read paths.input_dir from config.yaml.
+  goto :fail
+)
+for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).excel_pattern)"') do set EXCEL_PATTERN=%%P
+for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).data_file)"') do set DATA_FILE=%%P
+for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).output_dir)"') do set OUTPUT_DIR=%%P
+
 REM 1. Workbook must be staged (never committed; *.xlsx is gitignored).
-if not exist "workspace\input\ControlPases*.xlsx" (
-  echo [ERROR] No workbook found in workspace\input.
-  echo         Copy ControlPases.xlsx into workspace\input and retry.
+if not exist "%INPUT_DIR%\%EXCEL_PATTERN%" (
+  echo [ERROR] No workbook matching %EXCEL_PATTERN% in %INPUT_DIR%.
+  echo         Copy ControlPases.xlsx into your configured input dir and retry.
   goto :fail
 )
 
@@ -35,9 +46,9 @@ if errorlevel 1 (
 
 REM 2b. Stage the bundle copy next to the SPA (same layout SharePoint folder mode needs).
 if not exist "frontend\data" mkdir "frontend\data"
-copy /y "workspace\output\data.json" "frontend\data\data.json" >nul
+copy /y "%DATA_FILE%" "frontend\data\data.json" >nul
 if errorlevel 1 (
-  echo [ERROR] Could not stage data.json into frontend\data.
+  echo [ERROR] Could not stage %DATA_FILE% into frontend\data.
   goto :fail
 )
 
@@ -70,7 +81,7 @@ if errorlevel 1 (
   )
 )
 
-echo [DONE] Upload workspace\output\triage.html to the SharePoint library (single file, like dashboard.html).
+echo [DONE] Upload %OUTPUT_DIR%\triage.html to the SharePoint library (single file, like dashboard.html).
 pause
 exit /b 0
 
