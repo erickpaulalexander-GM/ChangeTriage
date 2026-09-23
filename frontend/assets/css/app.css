@@ -16,8 +16,9 @@
   --tint-success: rgba(76, 195, 138, 0.14);
   --tint-warning: rgba(232, 179, 75, 0.14);
   --tint-danger: rgba(232, 138, 128, 0.14);
-  --tint-auto: rgba(232, 150, 80, 0.20);
-  --auto-accent: #E89B5A;
+  --tint-auto: rgba(232, 150, 80, 0.28);
+  --auto-accent: #F2A85E;
+  --iconbtn-bg: #2B3752;
   --shadow-drawer: none;
   --shadow-card: none;
   --radius-card: 20px;
@@ -43,6 +44,7 @@ html[data-theme="light"] {
   --tint-danger: #FDE8E6;
   --tint-auto: #ECE7FB;
   --auto-accent: #7C6BC4;
+  --iconbtn-bg: #EDF1F7;
   --shadow-drawer: -12px 0 32px rgba(23, 32, 51, 0.10);
   --shadow-card: 0 1px 2px rgba(23, 32, 51, 0.05);
 }
@@ -89,7 +91,7 @@ body {
 /* Visible header theme switch: native button, keyboard accessible. */
 .theme-toggle {
   flex: none;
-  background: transparent;
+  background: var(--iconbtn-bg);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-button);
@@ -552,7 +554,7 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
 .actions button + button { background: transparent; border: 1px solid var(--border); color: var(--text); }
 /* Ops density: icon-only action buttons (label lives in title + aria-label). */
 .actions button.icon-btn {
-  background: transparent;
+  background: var(--iconbtn-bg);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 0.3rem 0.45rem;
