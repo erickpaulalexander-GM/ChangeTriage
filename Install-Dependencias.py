@@ -7,15 +7,21 @@ Reemplaza a Install-Dependencias.ps1 (eliminado: PowerShell bloquea los
 
 Pasos:
 - [1/3] Python 3.x (requerido para el pipeline y el bundle).
-- [2/3] uv via 'py -m uv' (resuelve openpyxl/tzdata/pytest al correr run.bat).
+- [2/3] Paquetes Python openpyxl/tzdata/pytest. OFFLINE: se instalan desde
+        la carpeta local 'wheels' si existe (run.bat los necesita pero nunca
+        descarga nada por si mismo). Fallback: pip con internet.
 - [3/3] Node.js LTS (opcional, solo para el smoke de frontend).
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
+
+PACKAGES = ["openpyxl", "tzdata", "pytest"]
+WHEELS_DIR = "wheels"
 
 
 def has_cmd(name: str) -> bool:
@@ -50,6 +56,43 @@ def winget_install(package: str, label: str) -> bool:
     return True
 
 
+def check_installed() -> list[str]:
+    """Return the package names not importable in the default 'py' Python."""
+    missing = []
+    for pkg in PACKAGES:
+        code, _ = capture(["py", "-c", "import %s" % pkg])
+        if code != 0:
+            missing.append(pkg)
+    return missing
+
+
+def install_packages(missing: list[str]) -> bool:
+    label = ", ".join(missing)
+    wheel_dir = WHEELS_DIR if os.path.isdir(WHEELS_DIR) else None
+    if wheel_dir:
+        print("  Instalando (offline) desde %s\\ ..." % WHEELS_DIR)
+        code, err = capture([
+            "py", "-m", "pip", "install", "--no-index",
+            "--find-links", WHEELS_DIR,
+        ] + missing)
+        if code == 0:
+            print("  Listo: %s instalados sin internet." % label)
+            return True
+        print("  [WARN] La instalacion offline fallo: %s" % (err or "desconocido"))
+        print("         Si falta algun wheel en %s\\, agregalo y reintenta." % WHEELS_DIR)
+        return False
+
+    print("  No hay carpeta 'wheels' local. Probando con internet...")
+    code, err = capture(["py", "-m", "pip", "install"] + missing)
+    if code != 0:
+        print("  [ERROR] 'py -m pip install %s' fallo: %s" % (label, err or ""))
+        print("         Si la red bloquea descargas, trae los wheels en 'wheels\\' ")
+        print("         (ver Comandos-Prod.txt) y reintenta.")
+        return False
+    print("  Listo.")
+    return True
+
+
 def main() -> int:
     failures = 0
 
@@ -65,21 +108,11 @@ def main() -> int:
         if not winget_install("Python.Python.3.12", "Python 3.12"):
             failures += 1
 
-    print("[2/3] uv (via py -m uv)...")
-    if has_cmd("py"):
-        code, version = capture(["py", "-m", "uv", "--version"])
-        if code == 0:
-            print("  OK: %s" % version)
-        else:
-            print("  Instalando uv como modulo Python...")
-            code, _ = capture(["py", "-m", "pip", "install", "uv"])
-            if code != 0:
-                print("  [ERROR] 'py -m pip install uv' fallo. Corre la terminal como Administrador y reintenta.")
-                failures += 1
-            else:
-                print("  Listo.")
-    else:
-        print("  [ERROR] Sin 'py' no se puede verificar ni instalar uv.")
+    print("[2/3] Paquetes openpyxl/tzdata/pytest...")
+    missing = check_installed() if has_cmd("py") else PACKAGES
+    if not missing:
+        print("  OK: ya estan importables en 'py'.")
+    elif not install_packages(missing):
         failures += 1
 
     print("[3/3] Node.js (opcional)...")

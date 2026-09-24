@@ -21,6 +21,9 @@ __pycache__/
 .venv/
 .pytest_cache/
 
+# Offline dependency wheels for the corporate PC (never commit binaries).
+wheels/
+
 # Local agent tooling (skill registry, scratch).
 .atl/
 
