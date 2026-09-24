@@ -1,7 +1,7 @@
 """Instala/verifica las dependencias de Change Triage en Windows.
 
-Port de Install-Dependencias.ps1 para la PC del banco (prod), donde
-PowerShell bloquea la ejecucion de .ps1. Uso desde la raiz del repo:
+Reemplaza a Install-Dependencias.ps1 (eliminado: PowerShell bloquea los
+.ps1 en la PC del banco/prod). Uso desde la raiz del repo:
 
     py Install-Dependencias.py
 
