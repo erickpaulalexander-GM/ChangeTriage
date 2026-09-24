@@ -248,9 +248,10 @@ check("filters-combo-theme-vars", /var\(--(surface|text|border)\)/.test(comboBlo
 check("filters-combo-capped", /max-height:\s*\d+px/.test(comboBlock) && /overflow-y:\s*auto/.test(comboBlock), true);
 check("filters-combo-z-index", (() => { const m = comboBlock.match(/z-index:\s*(\d+)/); return m ? Number(m[1]) >= 10 : false; })(), true);
 check("filters-combo-focus", /\.combo-option\.active/.test(css) && /aria-selected/.test(filtersCode), true);
-const windowBlock = (css.match(/\.window-block\s*\{([^}]*)\}/) || [])[1] || "";
-check("filters-window-grouped", /var\(--(surface-alt|surface)\)/.test(windowBlock) && /var\(--border\)/.test(windowBlock), true);
-check("filters-window-theme-safe", /#[0-9a-fA-F]{3,8}/.test(windowBlock), false);
+// The themed box is .window-group (blocks stay borderless layout groupings).
+const windowGroupBlock = (css.match(/\.window-group\s*\{([^}]*)\}/) || [])[1] || "";
+check("filters-window-grouped", /var\(--(surface-alt|surface)\)/.test(windowGroupBlock) && /var\(--border\)/.test(windowGroupBlock), true);
+check("filters-window-theme-safe", /#[0-9a-fA-F]{3,8}/.test(windowGroupBlock), false);
 
 // Minimal fake DOM for behavioral checks (no browser needed).
 function fakeNode() {
@@ -487,12 +488,13 @@ check("window-blocks-present",
   ["f-desde-date", "f-desde-time", "f-hasta-date", "f-hasta-time"]
     .every((id) => html.includes('id="' + id + '"')), true);
 check("window-labels",
-  html.includes("Fec. Hora. Ini. Impl") && html.includes("Fec. Hora. Fin. Impl"), true);
+  html.includes("Desde implementación") && html.includes("Hasta implementación"), true);
 check("window-clear-action", /id="clear-filters"/.test(html) && /Limpiar filtros/.test(html), true);
 // New blocks themed via CSS vars only (no hardcoded hex); wiring present.
-const winCssBlock = (css.match(/\.window-block\s*\{([^}]*)\}/) || [])[1] || "";
-check("window-themed", /var\(--(surface-alt|surface|border|muted)\)/.test(winCssBlock), true);
-check("window-theme-safe", /#[0-9a-fA-F]{3,8}/.test(winCssBlock), false);
+// Themed box: .window-group carries the vars; .window-block is neutral.
+const winGroupCssBlock = (css.match(/\.window-group\s*\{([^}]*)\}/) || [])[1] || "";
+check("window-themed", /var\(--(surface-alt|surface|border|muted)\)/.test(winGroupCssBlock), true);
+check("window-theme-safe", /#[0-9a-fA-F]{3,8}/.test(winGroupCssBlock), false);
 check("window-wired", /clear-filters/.test(searchCode)
   && /parseWindowBound/.test(searchCode) && /matchesWindow/.test(searchCode), true);
 
