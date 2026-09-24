@@ -3,24 +3,26 @@ Change Triage - comandos manuales para la PC del banco (prod)
 Pegar linea por linea en cmd o PowerShell. Sirve cuando el .ps1 esta
 bloqueado por politica. Requiere Python instalado (launcher 'py').
 
-MODO OFFLINE: en la PC del banco NO hay descargas de internet.
-Los paquetes openpyxl/tzdata/pytest se instalan UNA VEZ desde la
-carpeta local 'wheels' (traida por USB). run.bat nunca descarga nada:
-depende de que estos paquetes ya esten instalados en 'py'.
+MODO OFFLINE: en la PC del banco NO hay que descargar nada en cada corrida.
+run.bat nunca descarga: depende de que openpyxl/tzdata/pytest esten ya
+instalados en el Python del launcher 'py'. Hay dos vias para lograrlo:
+
+VIA A (sin USB, recomendada si ya tenes uv instalado):
+  uv instala los 3 paquetes EN el Python del sistema, una sola vez.
+  --system-certs usa el almacen de certificados de Windows (necesario
+  porque el proxy del banco re-firma TLS con certificado interno).
+
+  py -m uv pip install --system-certs openpyxl tzdata pytest
+  py -c "import openpyxl, tzdata, pytest; print('deps OK')"
+
+VIA B (USB, si algun dia tenes la carpeta wheels):
+  py -m pip install --no-index --find-links wheels openpyxl tzdata pytest
+  py -m pytest --version
+  py -c "import openpyxl, tzdata, pytest; print('deps OK')"
 
 [0] Verificar el launcher de Python:
 py --version
 python --version
-
-[1] Copiar la carpeta 'wheels' (con los .whl) a la raiz del repo.
-    Debe quedar: <repo>\wheels\*.whl
-
-[2] Instalar las dependencias UNA sola vez (offline, sin internet):
-py -m pip install --no-index --find-links wheels openpyxl tzdata pytest
-py -m pytest --version
-
-[3] Verificar que abren (deben importar sin error):
-py -c "import openpyxl, tzdata, pytest; print('deps OK')"
 
 [4] Node.js (opcional, solo para el smoke de frontend):
 node --version
@@ -28,7 +30,7 @@ winget install --exact --silent --accept-source-agreements --accept-package-agre
 
 [5] Si falta Python:
 winget install --exact --silent --accept-source-agreements --accept-package-agreements Python.Python.3.12
-(Cerrar y reabrir la terminal para que tome el PATH. Repetir [2] y [3].)
+(Cerrar y reabrir la terminal para que tome el PATH. Repetir VIA A o VIA B.)
 
 [6] Correr el pipeline desde la raiz del repo:
 run.bat
@@ -36,7 +38,8 @@ run.bat
 Nota: antes de [6], el workbook ControlPases.xlsx debe estar en la
 carpeta input configurada (ver config.yaml).
 
-Si algun wheel falta en 'wheels', la instalacion offline falla con un
-mensaje que nombra el paquete; trae ese .whl (se generan con:
-  pip download openpyxl tzdata pytest --dest wheels
-en una maquina con internet) y reintenta [2].
+Si VIA A falla por red (proxy/politica del banco), probar:
+  py -m uv pip install --system-certs openpyxl
+  py -m uv pip install --system-certs tzdata
+  py -m uv pip install --system-certs pytest
+(linea por linea; si una falla, se ve cual paquete/qué red falta).
