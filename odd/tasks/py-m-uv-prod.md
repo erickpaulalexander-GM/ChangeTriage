@@ -51,3 +51,4 @@ Pedido explícito del usuario: "hay q cambiar todo para que use uv por py -m uv"
 - Verificación: grep 33 matches, todos `py -m uv` o prosa/URL (sin `uv run` pelado, sin `where uv`, sin `Test-Cmd "uv"`); readback run.bat:1-23 + ps1:27-39 OK; diff 5 files +26/-21.
 - Engram mirror: pendiente (mem_save falló por múltiples sesiones runtime activas; reintentar al cierre).
 - Next: commit work-unit + cierre.
+- Work-unit commit: b1be862 chore(prod): use py -m uv instead of uv binary (6 files, +79/-21).
