@@ -49,6 +49,8 @@ Pedido explícito del usuario: "hay q cambiar todo para que use uv por py -m uv"
 ## Progress
 - 2026-09-24: doc creado, mapa completo (21 matches). T1-T3 implementados inline.
 - Verificación: grep 33 matches, todos `py -m uv` o prosa/URL (sin `uv run` pelado, sin `where uv`, sin `Test-Cmd "uv"`); readback run.bat:1-23 + ps1:27-39 OK; diff 5 files +26/-21.
-- Engram mirror: pendiente (mem_save falló por múltiples sesiones runtime activas; reintentar al cierre).
-- Next: commit work-unit + cierre.
+- Engram mirror: OK (topic config/odd-feature-py-m-uv-prod-tasks-mirror, guardado al cierre).
 - Work-unit commit: b1be862 chore(prod): use py -m uv instead of uv binary (6 files, +79/-21).
+- **2026-09-24 post-auditoría: historial REESCRITO y force-pushed.** Todos los SHAs de la rama cambiaron; el commit original b1be862 ya no existe. HEAD actual: 0adc9b6.
+- Auditoría prod adicional (misma rama): fix run.bat parens (`7b10837`), Config-Prod.txt sacado de git + .gitignore (contenía ruta interna del banco; sigue en disco local), logos BCP/Kyndryl commiteados (`0adc9b6`).
+- Next: cierre — pendiente solo manual: E2E real en navegador en la PC del banco (tarea diferida del README).
