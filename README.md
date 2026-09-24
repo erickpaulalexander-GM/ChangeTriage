@@ -8,9 +8,9 @@ exports from that JSON. No framework, no backend runtime.
 ## Pipeline rerun
 
 1. Stage the workbook: copy `ControlPases*.xlsx` into `workspace/input/`.
-2. Run (dependencies resolve via uv; Python ships without them;
+2. Run (dependencies resolve via py -m uv; Python ships without them;
    `tzdata` supplies the IANA zone database on Windows, which has none):
-   `uv run --with openpyxl --with tzdata python backend/generar_data.py`
+   `py -m uv run --with openpyxl --with tzdata python backend/generar_data.py`
 3. Output: `workspace/output/data.json`
    (`{generated_at, count, rows[], source_file?, source_modified_at?}`);
    `source_modified_at` is the workbook's date (internal metadata, falling back
@@ -29,7 +29,7 @@ first, then co-located `./data.json` / `./data/data.json`):
 ## Tests
 
 - Backend suite (synthetic rows only, incl. a null-window row):
-  `uv run --with pytest --with openpyxl --with tzdata pytest backend/tests`
+  `py -m uv run --with pytest --with openpyxl --with tzdata pytest backend/tests`
 - Frontend smoke (real `search.js`/`export.js` on synthetic rows):
   `node scripts/smoke.mjs`
 

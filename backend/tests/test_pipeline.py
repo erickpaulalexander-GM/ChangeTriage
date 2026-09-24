@@ -2,7 +2,7 @@
 contract shape, and the ticket-overlap sample run (task 4.1).
 
 All inputs are synthetic (backend.tests.fixtures) — no production rows.
-Run: uv run --with pytest --with openpyxl --with tzdata pytest backend/tests
+Run: py -m uv run --with pytest --with openpyxl --with tzdata pytest backend/tests
 """
 
 from __future__ import annotations

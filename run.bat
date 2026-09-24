@@ -7,9 +7,9 @@ setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-where uv >nul 2>nul
+py -m uv --version >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] 'uv' not found. Install it from https://docs.astral.sh/uv/ and retry.
+  echo [ERROR] 'py -m uv' not found. Install it with 'py -m pip install uv' (or https://docs.astral.sh/uv/) and retry.
   goto :fail
 )
 where python >nul 2>nul
@@ -20,14 +20,14 @@ if errorlevel 1 (
 
 REM 0. Resolve paths from config.yaml (DEV defaults or absolute PROD paths).
 REM    backend.config is stdlib-only, so plain python needs no downloads.
-for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).input_dir)"') do set INPUT_DIR=%%P
+for /f "delims=" %%P in ('py -m uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).input_dir)"') do set INPUT_DIR=%%P
 if errorlevel 1 (
   echo [ERROR] Could not read paths.input_dir from config.yaml.
   goto :fail
 )
-for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).excel_pattern)"') do set EXCEL_PATTERN=%%P
-for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).data_file)"') do set DATA_FILE=%%P
-for /f "delims=" %%P in ('uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).output_dir)"') do set OUTPUT_DIR=%%P
+for /f "delims=" %%P in ('py -m uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).excel_pattern)"') do set EXCEL_PATTERN=%%P
+for /f "delims=" %%P in ('py -m uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).data_file)"') do set DATA_FILE=%%P
+for /f "delims=" %%P in ('py -m uv run python -c "from backend.config import load_config,Settings; print(Settings.from_config(load_config()).output_dir)"') do set OUTPUT_DIR=%%P
 
 REM 1. Workbook must be staged (never committed; *.xlsx is gitignored).
 if not exist "%INPUT_DIR%\%EXCEL_PATTERN%" (
@@ -38,7 +38,7 @@ if not exist "%INPUT_DIR%\%EXCEL_PATTERN%" (
 
 REM 2. Pipeline: Excel -^> workspace\output\data.json (America/Lima ISO, fails fast on drift).
 echo [1/4] Running pipeline...
-uv run --with openpyxl --with tzdata python backend\generar_data.py
+py -m uv run --with openpyxl --with tzdata python backend\generar_data.py
 if errorlevel 1 (
   echo [ERROR] Pipeline failed. See output above.
   goto :fail
@@ -55,14 +55,14 @@ if errorlevel 1 (
 REM 3. Bundle: inline css/js/img + data.json into workspace\output\triage.html
 REM    (stdlib only, so plain python; works from the SharePoint library and file://).
 echo [2/4] Building single-file bundle...
-uv run python backend\bundle_single.py
+py -m uv run python backend\bundle_single.py
 if errorlevel 1 (
   echo [ERROR] Bundle failed. See output above.
   goto :fail
 )
 
 echo [3/4] Running backend tests...
-uv run --with pytest --with openpyxl --with tzdata pytest backend\tests -q
+py -m uv run --with pytest --with openpyxl --with tzdata pytest backend\tests -q
 if errorlevel 1 (
   echo [ERROR] Backend tests failed. See output above.
   goto :fail

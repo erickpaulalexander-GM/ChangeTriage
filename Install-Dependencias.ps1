@@ -4,7 +4,7 @@
   Instala/verifica las dependencias de Change Triage en Windows.
 .DESCRIPTION
   - Python 3.x (requerido para el pipeline y el bundle).
-  - uv (resuelve openpyxl/tzdata/pytest automaticamente al correr run.bat).
+  - uv via 'py -m uv' (resuelve openpyxl/tzdata/pytest automaticamente al correr run.bat).
   - Node.js LTS (opcional, solo para el smoke de frontend).
   Ejecutar desde la raiz del repo:
     powershell -ExecutionPolicy Bypass -File .\Install-Dependencias.ps1
@@ -24,13 +24,18 @@ if (Test-Cmd "python") {
   Write-Host "  Listo. Cerra y reabri la terminal para que tome el PATH."
 }
 
-Write-Host "[2/3] uv..." -ForegroundColor Cyan
-if (Test-Cmd "uv") {
-  Write-Host ("  OK: " + (uv --version 2>&1))
+Write-Host "[2/3] uv (via py -m uv)..." -ForegroundColor Cyan
+if (Test-Cmd "py") {
+  $uvVersion = (py -m uv --version 2>&1)
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host ("  OK: " + $uvVersion)
+  } else {
+    Write-Host "  Instalando uv como modulo Python..." -ForegroundColor Yellow
+    py -m pip install uv
+    Write-Host "  Listo. Si falla por permisos, corre la terminal como Administrador."
+  }
 } else {
-  Write-Host "  Instalando uv..." -ForegroundColor Yellow
-  powershell -ExecutionPolicy Bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  Write-Host "  Listo. Cerra y reabri la terminal para que tome el PATH."
+  Write-Host "  [ERROR] 'py' no encontrado en PATH. Instala Python 3.x primero y reintenta." -ForegroundColor Red
 }
 
 Write-Host "[3/3] Node.js (opcional)..." -ForegroundColor Cyan
