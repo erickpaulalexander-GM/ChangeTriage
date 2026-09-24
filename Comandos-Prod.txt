@@ -1,0 +1,29 @@
+Change Triage - comandos manuales para la PC del banco (prod)
+==============================================================
+Pegar linea por linea en cmd o PowerShell. Sirve cuando el .ps1 esta
+bloqueado por politica. Requiere Python instalado (launcher 'py').
+
+[0] Verificar el launcher de Python:
+py --version
+python --version
+
+[1] Verificar uv como modulo:
+py -m uv --version
+
+[2] Si [1] falla, instalar uv (solo una vez) y re-verificar:
+py -m pip install uv
+py -m uv --version
+
+[3] Node.js (opcional, solo para el smoke de frontend):
+node --version
+winget install --exact --silent --accept-source-agreements --accept-package-agreements OpenJS.NodeJS.LTS
+
+[4] Si falta Python:
+winget install --exact --silent --accept-source-agreements --accept-package-agreements Python.Python.3.12
+(Cerrar y reabrir la terminal para que tome el PATH.)
+
+[5] Correr el pipeline desde la raiz del repo:
+run.bat
+
+Nota: antes de [5], el workbook ControlPases.xlsx debe estar en la
+carpeta input configurada (ver config.yaml).
