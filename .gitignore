@@ -23,3 +23,6 @@ __pycache__/
 
 # Local agent tooling (skill registry, scratch).
 .atl/
+
+# Prod manual config with internal paths (never commit corporate paths).
+Config-Prod.txt
