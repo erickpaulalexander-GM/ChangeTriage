@@ -9,7 +9,7 @@ cd /d "%~dp0"
 
 py -m uv --version >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] 'py -m uv' not found. Install it with 'py -m pip install uv' (or https://docs.astral.sh/uv/) and retry.
+  echo [ERROR] 'py -m uv' not found. Install it with 'py -m pip install uv' ^(or https://docs.astral.sh/uv/^) and retry.
   goto :fail
 )
 where python >nul 2>nul
