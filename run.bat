@@ -5,6 +5,10 @@ REM No server is started (prod is static hosting): triage.html is left updated
 REM and you upload that single file to the SharePoint library (like dashboard.html).
 setlocal enabledelayedexpansion
 
+REM Use the Windows system certificate store (corporate TLS-inspection proxies
+REM sign with an internal root that uv would otherwise reject as UnknownIssuer).
+set UV_SYSTEM_CERTS=true
+
 cd /d "%~dp0"
 
 py -m uv --version >nul 2>nul
