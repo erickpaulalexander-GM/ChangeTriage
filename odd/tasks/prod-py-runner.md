@@ -162,11 +162,41 @@ Independently re-run by the orchestrator (not taken on the writer's word):
 
 ## Work-unit commits
 
-- `fix(parse): tolerate trailing empty header padding from dirty xlsx dimension`
-- `fix(parse): repair duplicated TIPO CAMBIO header and guard duplicate keys`
-- `feat(prod): add pure-Python run.py entry point (no .bat, no uv)`
-- `chore(prod): make every entry point .py-only and drop dead uv/wheels refs`
-- `docs(prod): repoint input dir to iTop and purge uv references`
+- `1c501c9` fix(parse): tolerate dirty xlsx dimension and duplicated TIPO CAMBIO header
+- `8aeb750` feat(prod): add pure-Python run.py entry point (no .bat, no uv)
+- `5e4ec92` chore(prod): make every entry point .py-only and drop dead uv/wheels refs
+- `c6a9dab` docs(prod): repoint input dir to iTop and purge uv references
+- `366435d` docs(odd): track prod-py-runner tasks and verification evidence
+
+Base: `0ccf00d`. Authored changed lines: 818 across 10 paths.
+
+## Native review outcome (RDD)
+
+Assessed tier: **high** (`process_boundary` / `shell_process` on
+`Install-Dependencias.py`). `review_due: true`, reason `high_risk`.
+
+Consent was granted, and START created lineage `review-a9cb18680ed39407`
+in `state: reviewing` with four lenses and a 200-line correction budget.
+The first bound STATUS then failed with
+`gentle-ai.review-integration.failure/v2` / `phase: pre_native` /
+`code: operation_timeout` / `retry_safe: false` / `next_action: stop`.
+
+No retry was attempted. The candidate was released with the exact captured
+decline invocation, which validated as `action: declined`,
+`consent: declined_this_candidate`, with an exact target identity match.
+
+**Outcome: receipt UNAVAILABLE.** The code is verified independently
+(acceptance criteria 1–7 all observed green); what is missing is the
+independent native review receipt, not the functional proof.
+
+Filed as an occurrence on the canonical tracker for this class:
+`Gentleman-Programming/gentle-ai#4655`
+(https://github.com/Gentleman-Programming/gentle-ai/issues/4655#issuecomment-5858532238).
+Containment was verified before filing: `compare d12be2e8...v3.7.0` returns
+`behind_by: 0`, so the installed stable build provably contains the #4258
+memoization fix and the defect still reproduces 523 commits later.
+
+Delivery remains an ordinary repository-policy decision.
 
 ## Next step
 
