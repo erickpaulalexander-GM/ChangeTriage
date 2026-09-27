@@ -149,9 +149,11 @@ window.TriageExport = (function () {
   }
 
   // Header + one short line per row:
-  // "• OCD-229558 | 26/09 | 01:00–02:00" same-day, multi-day as
-  // "• TICKET | DD/MM HH:MM → DD/MM HH:MM". Wall-string date parts only
-  // (never `new Date`), so the day can never slide in other timezones.
+  // "• OCD-229558 | 26/09 | 01:00–02:00 | AUTOMATIZADO | EJECUTADO"
+  // same-day, multi-day as "• TICKET | DD/MM HH:MM → DD/MM HH:MM | REC | EST".
+  // Every row carries the same five segments (blank recurso/estado render
+  // as "—") so the list scans as aligned columns. Wall-string date parts
+  // only (never `new Date`), so the day can never slide in other timezones.
   // Missing/unparsable bounds fall back to the long window label.
   function shortParts(value) {
     var text = cell(value).trim().replace(" ", "T");
@@ -161,14 +163,18 @@ window.TriageExport = (function () {
 
   function teamsRowLabel(row) {
     var ticket = cell(row.ticket).trim() || "?";
+    var recurso = cell(row.recurso).trim() || "—";
+    var estado = cell(row.estado_actual).trim() || "—";
     var ini = shortParts(row.fec_hora_ini_impl);
     var fin = shortParts(row.fec_hora_fin_impl);
-    if (!ini || !fin) return "• " + ticket + " | " + windowLabel(row);
+    if (!ini || !fin) return "• " + ticket + " | " + windowLabel(row) +
+      " | " + recurso + " | " + estado;
     if (ini.day === fin.day) {
-      return "• " + ticket + " | " + ini.day + " | " + ini.time + "–" + fin.time;
+      return "• " + ticket + " | " + ini.day + " | " + ini.time + "–" + fin.time +
+        " | " + recurso + " | " + estado;
     }
     return "• " + ticket + " | " + ini.day + " " + ini.time +
-      " → " + fin.day + " " + fin.time;
+      " → " + fin.day + " " + fin.time + " | " + recurso + " | " + estado;
   }
 
   function toTeamsSummary(rows) {

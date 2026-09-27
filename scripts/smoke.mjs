@@ -93,9 +93,13 @@ check("teams-lines", plainSummary.split("\n").length, 6); // 3 header + 3 rows
 check("teams-first-line", plainSummary.split("\n")[0], "📋 CHANGE TRIAGE");
 check("teams-filters-line", plainSummary.split("\n")[1], "Rechazados: ocultos");
 check("teams-count-line", plainSummary.split("\n")[2], "Resultado: **3 cambios**");
-check("teams-row-sameday", plainSummary.split("\n")[3], "• T-1001 | 14/09 | 00:00–06:00");
-check("teams-row-no-window", plainSummary.split("\n")[4], "• T-1002 | — → —");
-check("teams-row-sameday-2", plainSummary.split("\n")[5], "• T-1003 | 14/09 | 10:00–12:00");
+check("teams-row-sameday", plainSummary.split("\n")[3], "• T-1001 | 14/09 | 00:00–06:00 | synthetic.user | —");
+check("teams-row-no-window", plainSummary.split("\n")[4], "• T-1002 | — → — | synthetic.user | —");
+check("teams-row-sameday-2", plainSummary.split("\n")[5], "• T-1003 | 14/09 | 10:00–12:00 | synthetic.user | —");
+check("teams-row-full", exp.toTeamsSummary([{ ticket: "OCD-229558", recurso: "AUTOMATIZADO",
+  estado_actual: "EJECUTADO", fec_hora_ini_impl: "2026-09-26T01:00:00-05:00",
+  fec_hora_fin_impl: "2026-09-26T02:00:00-05:00" }]).split("\n")[3],
+  "• OCD-229558 | 26/09 | 01:00–02:00 | AUTOMATIZADO | EJECUTADO");
 // Drawer: Jira deep link for Jira-shaped tickets, plain text otherwise.
 const drawerCode = readFileSync(join(jsDir, "drawer.js"), "utf8");
 const drawerFactory = new Function("window", "document", `${drawerCode}; return window.Drawer;`);
@@ -701,7 +705,7 @@ check("teams-header-title", header.split("\n")[0], "📋 CHANGE TRIAGE");
 check("teams-header-filters", header.split("\n")[1],
   "Tickets: ITSM-1, ITSM-2 | Apps: HI49, YAPE | Tipo: Cambio Mayor | Ventana: 20 Sep · 00:00–01:00 | Búsqueda: hi49 outage | Rechazados: ocultos");
 check("teams-header-count", header.includes("Resultado: **1 cambio**"), true);
-check("teams-header-row", header.split("\n")[3], "• T-1001 | 14/09 | 00:00–06:00");
+check("teams-header-row", header.split("\n")[3], "• T-1001 | 14/09 | 00:00–06:00 | synthetic.user | —");
 check("teams-header-row-kept", header.split("\n").length, 4); // 3 header + 1 row
 
 // filters.js value surface used by chips/restore.
