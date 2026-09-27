@@ -89,11 +89,13 @@ check("csv-escape", window.TriageExport.toCSV([tricky]).includes('"a""b,c\nd"'),
 // Teams: normative header (Change Triage + filter context + count) + one
 // Ticket/App/window line per row.
 const plainSummary = window.TriageExport.toTeamsSummary(ROWS);
-check("teams-lines", plainSummary.split("\n").length, 7); // 4 header + 3 rows (rechazados hidden by default)
-check("teams-first-line", plainSummary.split("\n")[0], "Change Triage");
-check("teams-nofilters-line", plainSummary.split("\n")[1], "Filtros aplicados:");
-check("teams-rejected-hidden-line", plainSummary.split("\n")[2], "• Rechazados: ocultos");
-check("teams-count-line", plainSummary.split("\n")[3], "Resultados: 3 cambios encontrados.");
+check("teams-lines", plainSummary.split("\n").length, 6); // 3 header + 3 rows
+check("teams-first-line", plainSummary.split("\n")[0], "📋 CHANGE TRIAGE");
+check("teams-filters-line", plainSummary.split("\n")[1], "Rechazados: ocultos");
+check("teams-count-line", plainSummary.split("\n")[2], "Resultado: **3 cambios**");
+check("teams-row-sameday", plainSummary.split("\n")[3], "• T-1001 | 14/09 | 00:00–06:00");
+check("teams-row-no-window", plainSummary.split("\n")[4], "• T-1002 | — → —");
+check("teams-row-sameday-2", plainSummary.split("\n")[5], "• T-1003 | 14/09 | 10:00–12:00");
 // Drawer: Jira deep link for Jira-shaped tickets, plain text otherwise.
 const drawerCode = readFileSync(join(jsDir, "drawer.js"), "utf8");
 const drawerFactory = new Function("window", "document", `${drawerCode}; return window.Drawer;`);
@@ -695,16 +697,12 @@ const expFactory = new Function("window", "document",
   `${expCode}; return window.TriageExport;`);
 const expFiltered = expFactory(expWin, makeDocument());
 const header = expFiltered.toTeamsSummary([ROWS[0]]);
-check("teams-header-title", header.split("\n")[0], "Change Triage");
-check("teams-header-active", header.split("\n")[1], "Filtros aplicados:");
-check("teams-header-tickets", header.includes("• Tickets: ITSM-1, ITSM-2"), true);
-check("teams-header-apps", header.includes("• Apps: HI49, YAPE"), true);
-check("teams-header-tipo", header.includes("• Tipo: Cambio Mayor"), true);
-check("teams-header-window", header.includes("• Ventana: 20 Sep · 00:00–01:00"), true);
-check("teams-header-query", header.includes("• Búsqueda: hi49 outage"), true);
-check("teams-header-count", header.includes("Resultados: 1 cambios encontrados."), true);
-check("teams-header-rejected", header.includes("• Rechazados: ocultos"), true);
-check("teams-header-row-kept", header.split("\n").length, 10); // 9 header + 1 row (rechazados hidden by default)
+check("teams-header-title", header.split("\n")[0], "📋 CHANGE TRIAGE");
+check("teams-header-filters", header.split("\n")[1],
+  "Tickets: ITSM-1, ITSM-2 | Apps: HI49, YAPE | Tipo: Cambio Mayor | Ventana: 20 Sep · 00:00–01:00 | Búsqueda: hi49 outage | Rechazados: ocultos");
+check("teams-header-count", header.includes("Resultado: **1 cambio**"), true);
+check("teams-header-row", header.split("\n")[3], "• T-1001 | 14/09 | 00:00–06:00");
+check("teams-header-row-kept", header.split("\n").length, 4); // 3 header + 1 row
 
 // filters.js value surface used by chips/restore.
 check("filters-remove-value-exposed", typeof triageFilters.removeValue, "function");
