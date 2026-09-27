@@ -89,10 +89,11 @@ check("csv-escape", window.TriageExport.toCSV([tricky]).includes('"a""b,c\nd"'),
 // Teams: normative header (Change Triage + filter context + count) + one
 // Ticket/App/window line per row.
 const plainSummary = window.TriageExport.toTeamsSummary(ROWS);
-check("teams-lines", plainSummary.split("\n").length, 6); // 3 header + 3 rows
+check("teams-lines", plainSummary.split("\n").length, 7); // 4 header + 3 rows (rechazados hidden by default)
 check("teams-first-line", plainSummary.split("\n")[0], "Change Triage");
-check("teams-nofilters-line", plainSummary.split("\n")[1], "Sin filtros (vista completa).");
-check("teams-count-line", plainSummary.split("\n")[2], "Resultados: 3 cambios encontrados.");
+check("teams-nofilters-line", plainSummary.split("\n")[1], "Filtros aplicados:");
+check("teams-rejected-hidden-line", plainSummary.split("\n")[2], "• Rechazados: ocultos");
+check("teams-count-line", plainSummary.split("\n")[3], "Resultados: 3 cambios encontrados.");
 
 console.log(`SMOKE_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
 
@@ -661,11 +662,12 @@ const SHARE_CRIT = { q: "hi49 outage", ticket: ["ITSM-1", "ITSM-2"],
 const built = share.buildParams(SHARE_CRIT);
 check("share-roundtrip", share.parseParams("?" + built),
   { q: "hi49 outage", ticket: ["ITSM-1", "ITSM-2"], app: ["HI49", "YAPE"],
-    tipo: "Cambio Mayor", desde: "2026-09-20T00:00", hasta: "2026-09-20T01:00" });
+    tipo: "Cambio Mayor", desde: "2026-09-20T00:00", hasta: "2026-09-20T01:00",
+    showRechazados: false });
 check("share-multi-app", share.parseParams("?app=HI49&app=YAPE").app, ["HI49", "YAPE"]);
 check("share-multi-ticket", share.parseParams("?ticket=A&ticket=B").ticket, ["A", "B"]);
 check("share-tolerant", share.parseParams("?foo=1&app=&tipo=&q=&desde=nope"),
-  { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "" });
+  { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "", showRechazados: false });
 check("share-encode", share.parseParams("?" + share.buildParams(
   { q: "a/b c?", ticket: [], app: [], tipo: "", desde: "", hasta: "" })).q, "a/b c?");
 check("share-desde-shape", /(^|&)desde=2026-09-20T00%3A00(&|$)/.test(built), true);
@@ -689,7 +691,8 @@ check("teams-header-tipo", header.includes("• Tipo: Cambio Mayor"), true);
 check("teams-header-window", header.includes("• Ventana: 20 Sep · 00:00–01:00"), true);
 check("teams-header-query", header.includes("• Búsqueda: hi49 outage"), true);
 check("teams-header-count", header.includes("Resultados: 1 cambios encontrados."), true);
-check("teams-header-row-kept", header.split("\n").length, 9); // 8 header + 1 row
+check("teams-header-rejected", header.includes("• Rechazados: ocultos"), true);
+check("teams-header-row-kept", header.split("\n").length, 10); // 9 header + 1 row (rechazados hidden by default)
 
 // filters.js value surface used by chips/restore.
 check("filters-remove-value-exposed", typeof triageFilters.removeValue, "function");

@@ -106,10 +106,21 @@ window.TriageSearch = (function () {
     return false;
   }
 
+  // Default-hide for rejected rows: only a normalized estado_actual of
+  // exactly "rechazado" (trimmed, case-insensitive) is excluded, and only
+  // while the "Mostrar rechazados" opt-in is unchecked. Missing/blank/other
+  // states always pass so old payloads and synthetic fixtures keep showing.
+  function isRechazado(row) {
+    var estado = row && row.estado_actual !== null && row.estado_actual !== undefined
+      ? String(row.estado_actual) : "";
+    return estado.trim().toLowerCase() === "rechazado";
+  }
+
   // Field filters combine with AND semantics; blank filters are ignored.
   // ticket/app are arrays (OR inside, AND between); tipo stays single.
   function matchesFilters(row, criteria) {
     criteria = criteria || {};
+    if (!criteria.showRechazados && isRechazado(row)) return false;
     if (!matchesAny(row.ticket, criteria.ticket)) return false;
     if (!matchesAny(row.nombre_app, criteria.app)) return false;
     if (criteria.tipo && !contains(row.tipo_cambio, criteria.tipo.trim().toLowerCase())) return false;
@@ -120,6 +131,13 @@ window.TriageSearch = (function () {
   function val(id) {
     var el = document.getElementById(id);
     return el && typeof el.value === "string" ? el.value : "";
+  }
+
+  // Opt-in checkbox state; a missing element means "hide" (the default).
+  function showingRejected() {
+    if (typeof document === "undefined" || !document.getElementById) return false;
+    var box = document.getElementById("f-show-rejected");
+    return !!(box && box.checked);
   }
 
   // T4 visual-only 00:00/23:59 hint: toggles data-empty on the .time-wrap so
@@ -167,6 +185,7 @@ window.TriageSearch = (function () {
       tipo: val("f-tipo"),
       desde: parseWindowBound(val("f-desde-date"), val("f-desde-time"), false),
       hasta: parseWindowBound(val("f-hasta-date"), val("f-hasta-time"), true),
+      showRechazados: showingRejected(),
     };
   }
 
@@ -201,6 +220,9 @@ window.TriageSearch = (function () {
       var el = document.getElementById(id);
       if (el) el.value = "";
     });
+    // Rechazados opt-in returns to the default (hidden).
+    var show = document.getElementById("f-show-rejected");
+    if (show) show.checked = false;
     // Multi-select chips live in filters.js: clear + repaint there, then
     // close any open dropdown (clearSelected already repaints the chips).
     if (window.TriageFilters && typeof window.TriageFilters.clearSelected === "function") {
@@ -229,6 +251,15 @@ window.TriageSearch = (function () {
         applyFilters();
       });
     });
+    // Rechazados opt-in: same change -> hints + re-apply as the other
+    // controls (guarded: search.js also loads in harness/standalone DOMs).
+    var showRejected = document.getElementById("f-show-rejected");
+    if (showRejected && showRejected.addEventListener) {
+      showRejected.addEventListener("change", function () {
+        syncTimeHints();
+        applyFilters();
+      });
+    }
     // Live hint toggle while typing a time (change fires only on commit).
     ["f-desde-time", "f-hasta-time"].forEach(function (id) {
       var input = document.getElementById(id);

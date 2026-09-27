@@ -62,16 +62,17 @@ window.TriageExport = (function () {
 
   // Normative shareable-state header for the Teams summary (client format):
   // only sections with an active filter are listed (+Tickets/+Búsqueda when
-  // they apply); with no filters a single "Sin filtros" line is used. Reads
-  // the live criteria from TriageSearch so the summary always describes the
-  // visible rows; count = rows.length (visible rows).
+  // they apply); with no filters a single "Sin filtros" line is used — unless
+  // rechazados are hidden (the default), which always counts as an active
+  // exclusion and is named. Reads the live criteria from TriageSearch so the
+  // summary always describes the visible rows; count = rows.length.
   function criteriaOf() {
     if (window.TriageSearch && typeof window.TriageSearch.getCriteria === "function") {
       try {
         return window.TriageSearch.getCriteria();
       } catch (e) { /* fall through to the empty shape below */ }
     }
-    return { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "" };
+    return { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "", showRechazados: false };
   }
 
   function cleanValues(values) {
@@ -127,11 +128,15 @@ window.TriageExport = (function () {
     var tipo = cell(criteria.tipo).trim();
     var query = cell(criteria.q).trim();
     var win = windowLabelShort(criteria.desde, criteria.hasta);
+    // Missing flag means hidden (the default): the exclusion is named and
+    // "Sin filtros (vista completa)" is never printed while hiding.
+    var hidingRejected = criteria.showRechazados !== true;
     var lines = ["Change Triage"];
-    if (!tickets.length && !apps.length && !tipo && !query && !win) {
+    if (!tickets.length && !apps.length && !tipo && !query && !win && !hidingRejected) {
       lines.push("Sin filtros (vista completa).");
     } else {
       lines.push("Filtros aplicados:");
+      if (hidingRejected) lines.push("• Rechazados: ocultos");
       if (tickets.length) lines.push("• Tickets: " + tickets.join(", "));
       if (apps.length) lines.push("• Apps: " + apps.join(", "));
       if (tipo) lines.push("• Tipo: " + tipo);
