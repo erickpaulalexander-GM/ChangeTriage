@@ -2,7 +2,7 @@
 contract shape, and the ticket-overlap sample run (task 4.1).
 
 All inputs are synthetic (backend.tests.fixtures) — no production rows.
-Run: py -m uv run --with pytest --with openpyxl --with tzdata pytest backend/tests
+Run: py -m pytest backend/tests -q
 """
 
 from __future__ import annotations
@@ -20,8 +20,10 @@ from backend.normalizador import (
 )
 from backend.parser_excel import (
     EXPECTED_COLUMN_COUNT,
+    POSITIONAL_HEADER_ALIASES,
     HeaderDriftError,
     RawTable,
+    _trim_trailing_empty_headers,
     map_headers,
     read_workbook,
 )
@@ -29,13 +31,19 @@ from backend.schema import ROW_KEYS, SchemaError, build_payload, validate_rows
 from backend.utils import normalize_header
 
 from .fixtures import (
+    BANK_2026_HEADERS,
     CANONICAL,
+    DIRTY_DIMENSION_EXTRA_COLUMNS,
+    DUPLICATED_HEADER_COLUMN,
+    DUPLICATED_HEADER_INDEX,
     RAW_HEADERS,
     SAMPLE_INCIDENT_ISO,
-    SAMPLE_WINDOW_FIN,
     SAMPLE_WINDOW_INI,
     synthetic_rows,
+    write_header_only_workbook,
     write_workbook,
+    write_workbook_with_dirty_dimension,
+    write_workbook_with_headers,
 )
 
 
@@ -54,6 +62,146 @@ def test_header_drift_fails_fast() -> None:
     drifted[2] = "TIKET DRIFT"
     with pytest.raises(HeaderDriftError, match="header drift"):
         map_headers(drifted)
+
+
+# --- Dirty <dimension> regression (prod: the bank dropped Excel Table) ---
+
+
+def test_trim_trailing_empty_headers_drops_only_the_pad() -> None:
+    """Only the trailing run goes; inner empties survive for strict mapping."""
+    raw = ["TRIBU", None, "   ", "SQUAD", None, None]
+    assert _trim_trailing_empty_headers(raw) == ["TRIBU", None, "   ", "SQUAD"]
+    # Whitespace-only counts as empty, so an all-blank row trims to nothing.
+    assert _trim_trailing_empty_headers([None, "  ", "\t"]) == []
+    assert _trim_trailing_empty_headers([]) == []
+    assert _trim_trailing_empty_headers(["A", "B"]) == ["A", "B"]
+
+
+def test_dirty_dimension_fixture_really_pads_the_header_row(tmp_path) -> None:
+    """Guard: the fixture must stay dirty, or the tests below prove nothing."""
+    import openpyxl
+
+    path = write_workbook_with_dirty_dimension(tmp_path / "dirty.xlsx")
+    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    try:
+        raw = list(next(workbook["Hoja1"].iter_rows(values_only=True)))
+    finally:
+        workbook.close()
+    assert DIRTY_DIMENSION_EXTRA_COLUMNS == 10
+    assert len(raw) == EXPECTED_COLUMN_COUNT + DIRTY_DIMENSION_EXTRA_COLUMNS
+    assert sum(1 for cell in raw if cell is None) == DIRTY_DIMENSION_EXTRA_COLUMNS
+
+
+def test_dirty_dimension_workbook_parses_every_row(tmp_path) -> None:
+    """A stale oversized <dimension> no longer fails the run."""
+    path = write_workbook_with_dirty_dimension(tmp_path / "dirty.xlsx")
+    table = read_workbook(path, "Hoja1")
+    assert list(table.columns) == CANONICAL
+    assert len(table.columns) == EXPECTED_COLUMN_COUNT
+    # The padded data rows are truncated by the trimmed column tuple.
+    assert len(table.rows) == 3
+    rows = normalize_rows(table.rows)
+    assert [row["ticket"] for row in rows] == ["T-1001", "T-1002", "T-1003"]
+    assert rows[2]["tipo_cambio2"] == "ADICIONAL"
+
+
+def test_dirty_dimension_still_rejects_non_trailing_drift(tmp_path) -> None:
+    """Trailing padding is tolerated; a real unknown header still fails."""
+    headers = [*RAW_HEADERS, *([None] * DIRTY_DIMENSION_EXTRA_COLUMNS)]
+    headers[2] = "TIKET DRIFT"
+    path = write_header_only_workbook(
+        tmp_path / "drift.xlsx", headers, DIRTY_DIMENSION_EXTRA_COLUMNS
+    )
+    with pytest.raises(HeaderDriftError, match="header drift"):
+        read_workbook(path, "Hoja1")
+
+
+def test_dirty_dimension_empty_header_row_still_rejected(tmp_path) -> None:
+    """An all-empty header row trims to zero columns and still fails."""
+    headers = [None] * (EXPECTED_COLUMN_COUNT + DIRTY_DIMENSION_EXTRA_COLUMNS)
+    path = write_header_only_workbook(
+        tmp_path / "blank.xlsx", headers, DIRTY_DIMENSION_EXTRA_COLUMNS
+    )
+    with pytest.raises(HeaderDriftError, match="header drift"):
+        read_workbook(path, "Hoja1")
+
+
+def test_short_header_row_still_rejected_by_count(tmp_path) -> None:
+    """A trimmed row below the expected width fails on the count check."""
+    headers = list(RAW_HEADERS)[:-1] + [None]
+    path = write_header_only_workbook(tmp_path / "short.xlsx", headers)
+    with pytest.raises(HeaderDriftError, match="header drift"):
+        read_workbook(path, "Hoja1")
+
+
+# --- Duplicated header: the bank repeats column 5's spelling at column 32 ---
+
+
+def test_bank_2026_headers_repeat_the_column_5_spelling() -> None:
+    """The fixture really is a duplicate, and the alias covers that column."""
+    assert BANK_2026_HEADERS[DUPLICATED_HEADER_INDEX] == "TIPO CAMBIO"
+    assert BANK_2026_HEADERS[DUPLICATED_HEADER_INDEX] == BANK_2026_HEADERS[4]
+    assert POSITIONAL_HEADER_ALIASES[DUPLICATED_HEADER_COLUMN] == "TIPO CAMBIO2"
+
+
+def test_positional_alias_repairs_the_duplicated_header() -> None:
+    """The duplicate resolves to tipo_cambio2 instead of colliding."""
+    columns = map_headers(BANK_2026_HEADERS)
+    assert columns == CANONICAL
+    assert len(set(columns)) == EXPECTED_COLUMN_COUNT
+    assert columns[DUPLICATED_HEADER_INDEX] == "tipo_cambio2"
+
+
+def test_positional_alias_workbook_keeps_both_change_types(tmp_path) -> None:
+    """End to end: no collapsed key, and the second classification survives."""
+    sheet_rows = [[row[key] for key in CANONICAL] for row in synthetic_rows()]
+    path = write_workbook_with_headers(
+        tmp_path / "bank-2026.xlsx",
+        BANK_2026_HEADERS,
+        sheet_rows,
+        DIRTY_DIMENSION_EXTRA_COLUMNS,
+    )
+    table = read_workbook(path, "Hoja1")
+    assert list(table.columns) == CANONICAL
+    assert all(len(row) == EXPECTED_COLUMN_COUNT for row in table.rows)
+    rows = normalize_rows(table.rows)
+    assert [row["ticket"] for row in rows] == ["T-1001", "T-1002", "T-1003"]
+    assert rows[2]["tipo_cambio2"] == "ADICIONAL"
+    assert all(row["tipo_cambio"] == "NORMAL" for row in rows)
+
+
+def test_duplicate_at_non_aliased_position_raises_with_detail() -> None:
+    """An uncovered duplicate fails fast naming key, positions and values."""
+    drifted = list(RAW_HEADERS)
+    drifted[4] = "ESTADO ACTUAL"  # duplicates column 34; position 5 is not aliased
+    with pytest.raises(HeaderDriftError) as excinfo:
+        map_headers(drifted)
+    message = str(excinfo.value)
+    assert "duplicate column 'estado_actual'" in message
+    assert "positions 5 and 34" in message
+    assert "ESTADO ACTUAL" in message
+
+
+def test_alias_refuses_when_its_target_is_already_taken() -> None:
+    """A taken alias target is not stolen; the duplicate still fails fast."""
+    drifted = list(RAW_HEADERS)
+    drifted[3] = "TIPO CAMBIO2"  # column 4 now claims tipo_cambio2
+    drifted[DUPLICATED_HEADER_INDEX] = "TIPO CAMBIO"  # ...and column 32 duplicates
+    with pytest.raises(HeaderDriftError) as excinfo:
+        map_headers(drifted)
+    message = str(excinfo.value)
+    assert "duplicate column 'tipo_cambio'" in message
+    assert "positions 5 and 32" in message
+
+
+def test_uncovered_duplicate_workbook_still_fails_fast(tmp_path) -> None:
+    """The guard also holds on the read path, not only in map_headers."""
+    drifted = list(BANK_2026_HEADERS)
+    # Break column 5; the column-32 alias no longer applies.
+    drifted[4] = "ESTADO ACTUAL"
+    path = write_header_only_workbook(tmp_path / "dup.xlsx", drifted)
+    with pytest.raises(HeaderDriftError, match="duplicate column"):
+        read_workbook(path, "Hoja1")
 
 
 def test_lima_parse_emits_fixed_offset() -> None:
