@@ -23,6 +23,17 @@ window.Drawer = (function () {
 
   var lastTrigger = null;
 
+  // Jira deep link for the drawer title: any ticket shaped like a Jira key
+  // (OCD-216962, ITSM-2583450, MVPLEGBCP-12, …) opens its issue in a new
+  // tab. Anything else renders as plain text (current behavior).
+  var JIRA_BROWSE = "https://bcp-ti.atlassian.net.mcas.ms/browse/";
+
+  function ticketUrl(ticket) {
+    var key = ticket === null || ticket === undefined ? "" : String(ticket).trim();
+    if (!/^[A-Z][A-Z0-9]*-\d+$/.test(key)) return "";
+    return JIRA_BROWSE + encodeURIComponent(key);
+  }
+
   function label(key) {
     return key.replace(/_/g, " ").toUpperCase();
   }
@@ -57,8 +68,26 @@ window.Drawer = (function () {
     lastTrigger = triggerEl || null;
     var body = document.getElementById("drawer-body");
     body.innerHTML = "";
-    document.getElementById("drawer-title").textContent =
-      (row.ticket || "Change") + " — " + (row.nombre_app || "");
+    // Title keeps its "TICKET — App" text; the ticket becomes a Jira link
+    // only when it looks like a Jira key (built with DOM APIs, never HTML
+    // strings, so workbook text cannot inject markup).
+    var titleEl = document.getElementById("drawer-title");
+    titleEl.textContent = "";
+    var ticket = row.ticket || "Change";
+    var link = ticketUrl(row.ticket);
+    if (link) {
+      var anchor = document.createElement("a");
+      anchor.href = link;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.className = "ticket-link";
+      anchor.textContent = ticket;
+      anchor.setAttribute("aria-label", "Abrir " + ticket + " en Jira");
+      titleEl.appendChild(anchor);
+    } else {
+      titleEl.appendChild(document.createTextNode(ticket));
+    }
+    titleEl.appendChild(document.createTextNode(" — " + (row.nombre_app || "")));
     // Compact internal nav: anchor chips linking to each group section.
     var nav = document.createElement("nav");
     nav.className = "drawer-nav";
@@ -145,5 +174,5 @@ window.Drawer = (function () {
   if (document.readyState !== "loading") init();
   else document.addEventListener("DOMContentLoaded", init);
 
-  return { open: open, close: close, formatDate: formatDate };
+  return { open: open, close: close, formatDate: formatDate, ticketUrl: ticketUrl };
 })();

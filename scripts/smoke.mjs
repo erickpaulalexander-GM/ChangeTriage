@@ -94,6 +94,18 @@ check("teams-first-line", plainSummary.split("\n")[0], "Change Triage");
 check("teams-nofilters-line", plainSummary.split("\n")[1], "Filtros aplicados:");
 check("teams-rejected-hidden-line", plainSummary.split("\n")[2], "• Rechazados: ocultos");
 check("teams-count-line", plainSummary.split("\n")[3], "Resultados: 3 cambios encontrados.");
+// Drawer: Jira deep link for Jira-shaped tickets, plain text otherwise.
+const drawerCode = readFileSync(join(jsDir, "drawer.js"), "utf8");
+const drawerFactory = new Function("window", "document", `${drawerCode}; return window.Drawer;`);
+const drawer = drawerFactory({}, makeDocument());
+check("drawer-jira-ocd", drawer.ticketUrl("OCD-216962"), "https://bcp-ti.atlassian.net.mcas.ms/browse/OCD-216962");
+check("drawer-jira-itsm", drawer.ticketUrl("ITSM-2583450"), "https://bcp-ti.atlassian.net.mcas.ms/browse/ITSM-2583450");
+check("drawer-jira-mvplegbcp", drawer.ticketUrl("MVPLEGBCP-12"), "https://bcp-ti.atlassian.net.mcas.ms/browse/MVPLEGBCP-12");
+check("drawer-jira-trim", drawer.ticketUrl("  OCD-1 "), "https://bcp-ti.atlassian.net.mcas.ms/browse/OCD-1");
+check("drawer-jira-lower", drawer.ticketUrl("ocd-1"), "");
+check("drawer-jira-text", drawer.ticketUrl("Sin ticket"), "");
+check("drawer-jira-blank", drawer.ticketUrl(""), "");
+check("drawer-jira-null", drawer.ticketUrl(null), "");
 
 console.log(`SMOKE_DONE pass=${pass} fail=${process.exitCode ? 1 : 0}`);
 
