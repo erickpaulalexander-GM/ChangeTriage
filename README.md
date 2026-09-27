@@ -8,11 +8,13 @@ exports from that JSON. No framework, no backend runtime.
 ## Pipeline rerun
 
 1. Stage the workbook: copy `ControlPases*.xlsx` into `workspace/input/`.
-2. Install dependencies once (offline-capable, see `Comandos-Prod.txt`):
-   `py -m pip install --no-index --find-links wheels openpyxl tzdata pytest`
+2. Install dependencies once into the Python reached by the `py` launcher
+   (`openpyxl`, `tzdata`, `pytest`; see `Comandos-Prod.txt`).
 3. Run (no downloads happen; `tzdata` supplies the IANA zone database on
    Windows, which has none):
-   `py backend/generar_data.py`
+   `py run.py`
+   Use `py run.py --skip-tests` to rebuild the output without the pytest
+   suite and the frontend smoke.
 4. Output: `workspace/output/data.json`
    (`{generated_at, count, rows[], source_file?, source_modified_at?}`);
    `source_modified_at` is the workbook's date (internal metadata, falling back
@@ -20,6 +22,9 @@ exports from that JSON. No framework, no backend runtime.
    (`generated_at`) lives in its tooltip.
    Dates are America/Lima ISO (`-05:00`); nulls are preserved.
    The run fails non-zero on header drift or bad dates and writes nothing.
+
+`run.py` is the entry point; `run.bat` is kept for reference only (corporate
+policy on the bank PC refuses to execute `.bat` files).
 
 ## SPA serve
 
