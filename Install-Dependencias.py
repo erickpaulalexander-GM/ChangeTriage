@@ -1,4 +1,4 @@
-"""Instala/verifica las dependencias de Change Triage en Windows.
+"""Verifica las dependencias de Change Triage en Windows.
 
 Reemplaza a Install-Dependencias.ps1 (eliminado: PowerShell bloquea los
 .ps1 en la PC del banco/prod). Uso desde la raiz del repo:
@@ -7,21 +7,21 @@ Reemplaza a Install-Dependencias.ps1 (eliminado: PowerShell bloquea los
 
 Pasos:
 - [1/3] Python 3.x (requerido para el pipeline y el bundle).
-- [2/3] Paquetes Python openpyxl/tzdata/pytest. OFFLINE: se instalan desde
-        la carpeta local 'wheels' si existe (run.bat los necesita pero nunca
-        descarga nada por si mismo). Fallback: pip con internet.
+- [2/3] Reporta el estado de openpyxl/tzdata/pytest en el Python del sistema
+        al que apunta el launcher 'py'. NO descarga nada: si falta algun
+        paquete, indica seguir Comandos-Prod.txt, que es la unica via
+        soportada (el banco bloqueo uv y la carpeta 'wheels' esta en
+        .gitignore, asi que nunca llega a la PC del banco).
 - [3/3] Node.js LTS (opcional, solo para el smoke de frontend).
 """
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
 
 PACKAGES = ["openpyxl", "tzdata", "pytest"]
-WHEELS_DIR = "wheels"
 
 
 def has_cmd(name: str) -> bool:
@@ -66,31 +66,16 @@ def check_installed() -> list[str]:
     return missing
 
 
-def install_packages(missing: list[str]) -> bool:
+def report_missing(missing: list[str]) -> None:
+    """Point the user at Comandos-Prod.txt; never download from here."""
     label = ", ".join(missing)
-    wheel_dir = WHEELS_DIR if os.path.isdir(WHEELS_DIR) else None
-    if wheel_dir:
-        print("  Instalando (offline) desde %s\\ ..." % WHEELS_DIR)
-        code, err = capture([
-            "py", "-m", "pip", "install", "--no-index",
-            "--find-links", WHEELS_DIR,
-        ] + missing)
-        if code == 0:
-            print("  Listo: %s instalados sin internet." % label)
-            return True
-        print("  [WARN] La instalacion offline fallo: %s" % (err or "desconocido"))
-        print("         Si falta algun wheel en %s\\, agregalo y reintenta." % WHEELS_DIR)
-        return False
-
-    print("  No hay carpeta 'wheels' local. Probando con internet...")
-    code, err = capture(["py", "-m", "pip", "install"] + missing)
-    if code != 0:
-        print("  [ERROR] 'py -m pip install %s' fallo: %s" % (label, err or ""))
-        print("         Si la red bloquea descargas, trae los wheels en 'wheels\\' ")
-        print("         (ver Comandos-Prod.txt) y reintenta.")
-        return False
-    print("  Listo.")
-    return True
+    print("  FALTAN: %s" % label)
+    print("  Este script no descarga nada. Segui Comandos-Prod.txt:")
+    print("    py -c \"import openpyxl, tzdata, pytest; print('deps OK')\"")
+    print("    py -m pip install %s" % label)
+    print("  Si la red/proxy del banco bloquea PyPI, pedi a TI que los")
+    print("  instale. No hay carpeta 'wheels' en la PC del banco (esta en")
+    print("  .gitignore), y uv esta bloqueado: no los uses.")
 
 
 def main() -> int:
@@ -102,7 +87,8 @@ def main() -> int:
         print("  OK: %s" % (version or "py disponible"))
     elif has_cmd("python"):
         _, version = capture(["python", "--version"])
-        print("  OK: %s (ojo: run.bat usa el launcher 'py')" % (version or "python disponible"))
+        print("  OK: %s (ojo: run.py usa el launcher 'py')"
+              % (version or "python disponible"))
     else:
         print("  Python no encontrado. Intentando instalar Python 3.12...")
         if not winget_install("Python.Python.3.12", "Python 3.12"):
@@ -111,8 +97,9 @@ def main() -> int:
     print("[2/3] Paquetes openpyxl/tzdata/pytest...")
     missing = check_installed() if has_cmd("py") else PACKAGES
     if not missing:
-        print("  OK: ya estan importables en 'py'.")
-    elif not install_packages(missing):
+        print("  OK: ya estan importables en el Python de 'py'.")
+    else:
+        report_missing(missing)
         failures += 1
 
     print("[3/3] Node.js (opcional)...")
@@ -128,13 +115,14 @@ def main() -> int:
         if answer in ("", "s", "y"):
             winget_install("OpenJS.NodeJS.LTS", "Node LTS")
         else:
-            print("  Omitido: run.bat saltea el smoke si no hay Node.")
+            print("  Omitido: run.py saltea el smoke si no hay Node.")
 
     print("")
+    next_step = "copia ControlPases.xlsx a workspace\\input y corre py run.py"
     if failures:
-        print("[PENDIENTE] Revisa los errores de arriba. Luego: copia ControlPases.xlsx a workspace\\input y corre run.bat")
+        print("[PENDIENTE] Revisa lo de arriba. Luego: %s" % next_step)
         return 1
-    print("[DONE] Siguiente paso: copia ControlPases.xlsx a workspace\\input y corre run.bat")
+    print("[DONE] Siguiente paso: %s" % next_step)
     return 0
 
 

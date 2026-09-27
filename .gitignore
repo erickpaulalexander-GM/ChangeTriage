@@ -26,6 +26,7 @@ wheels/
 
 # Local agent tooling (skill registry, scratch).
 .atl/
+.codegraph/
 
 # Prod manual config with internal paths (never commit corporate paths).
 Config-Prod.txt
