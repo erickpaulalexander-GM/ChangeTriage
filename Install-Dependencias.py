@@ -72,7 +72,7 @@ def report_missing(missing: list[str]) -> None:
     print("  FALTAN: %s" % label)
     print("  Este script no descarga nada. Segui Comandos-Prod.txt:")
     print("    py -c \"import openpyxl, tzdata, pytest; print('deps OK')\"")
-    print("    py -m pip install %s" % label)
+    print("    py -m pip install -r requirements.txt")
     print("  Si la red/proxy del banco bloquea PyPI, pedi a TI que los")
     print("  instale. No hay carpeta 'wheels' en la PC del banco (esta en")
     print("  .gitignore), y uv esta bloqueado: no los uses.")

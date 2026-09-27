@@ -13,7 +13,7 @@ VERIFICAR (una sola vez, sin instalar nada):
   py -c "import openpyxl, tzdata, pytest; print('deps OK')"
 Si imprime "deps OK", no tenes que hacer nada mas. Si tira ModuleNotFoundError,
 instalalo UNA vez con pip (unica via soportada, requiere red/proxy):
-  py -m pip install openpyxl tzdata pytest
+  py -m pip install -r requirements.txt
   py -c "import openpyxl, tzdata, pytest; print('deps OK')"
   py -m pytest --version
 
