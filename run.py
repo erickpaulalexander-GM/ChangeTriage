@@ -1,8 +1,8 @@
 """Change Triage runner: the pure-Python entry point.
 
-Replaces ``run.bat`` as the way to run the whole pipeline. It exists because
-corporate policy on the bank PC refuses to execute ``.bat`` files, and it
-calls the same stages in the same order:
+Corporate policy on the bank PC refuses to execute ``.bat`` files and
+``uv`` is blocked, so this script is the only way to run the whole
+pipeline. It runs the same stages in order:
 
 1. Resolve the paths from ``config.yaml`` (DEV defaults or absolute PROD
    paths) and refuse to continue when no workbook is staged.

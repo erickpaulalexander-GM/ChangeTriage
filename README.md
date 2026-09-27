@@ -23,8 +23,7 @@ exports from that JSON. No framework, no backend runtime.
    Dates are America/Lima ISO (`-05:00`); nulls are preserved.
    The run fails non-zero on header drift or bad dates and writes nothing.
 
-`run.py` is the entry point; `run.bat` is kept for reference only (corporate
-policy on the bank PC refuses to execute `.bat` files).
+`run.py` is the entry point (pure Python, no `.bat`, no `uv`).
 
 ## SPA serve
 
