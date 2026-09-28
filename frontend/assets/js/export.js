@@ -61,17 +61,22 @@ window.TriageExport = (function () {
   }
 
   // Normative shareable-state header for the Teams summary (client format):
-  // only sections with an active filter are listed (+Tickets/+Búsqueda when
-  // they apply); with no filters a single "Sin filtros" line is used. Reads
-  // the live criteria from TriageSearch so the summary always describes the
-  // visible rows; count = rows.length (visible rows).
+  //   📋 CHANGE TRIAGE
+  //   Apps: YAPV | Rechazados: ocultos
+  //   Resultado: **2 cambios**
+  // Active filters share one compact line joined with " | "; "Sin filtros"
+  // only when nothing is active AND rechazados are shown. The exclusion is
+  // always named while hiding. Count uses markdown bold with singular
+  // ("1 cambio") / plural ("N cambios"). Reads the live criteria from
+  // TriageSearch so the summary always describes the visible rows;
+  // count = rows.length (visible rows).
   function criteriaOf() {
     if (window.TriageSearch && typeof window.TriageSearch.getCriteria === "function") {
       try {
         return window.TriageSearch.getCriteria();
       } catch (e) { /* fall through to the empty shape below */ }
     }
-    return { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "" };
+    return { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "", showRechazados: false };
   }
 
   function cleanValues(values) {
@@ -127,27 +132,56 @@ window.TriageExport = (function () {
     var tipo = cell(criteria.tipo).trim();
     var query = cell(criteria.q).trim();
     var win = windowLabelShort(criteria.desde, criteria.hasta);
-    var lines = ["Change Triage"];
-    if (!tickets.length && !apps.length && !tipo && !query && !win) {
-      lines.push("Sin filtros (vista completa).");
-    } else {
-      lines.push("Filtros aplicados:");
-      if (tickets.length) lines.push("• Tickets: " + tickets.join(", "));
-      if (apps.length) lines.push("• Apps: " + apps.join(", "));
-      if (tipo) lines.push("• Tipo: " + tipo);
-      if (win) lines.push("• Ventana: " + win);
-      if (query) lines.push("• Búsqueda: " + query);
-    }
-    lines.push("Resultados: " + count + " cambios encontrados.");
+    // Missing flag means hidden (the default): the exclusion is named and
+    // "Sin filtros" is never printed while hiding.
+    var hidingRejected = criteria.showRechazados !== true;
+    var parts = [];
+    if (tickets.length) parts.push("Tickets: " + tickets.join(", "));
+    if (apps.length) parts.push("Apps: " + apps.join(", "));
+    if (tipo) parts.push("Tipo: " + tipo);
+    if (win) parts.push("Ventana: " + win);
+    if (query) parts.push("Búsqueda: " + query);
+    if (hidingRejected) parts.push("Rechazados: ocultos");
+    var lines = ["📋 CHANGE TRIAGE"];
+    lines.push(parts.length ? parts.join(" | ") : "Sin filtros");
+    lines.push("Resultado: **" + count + (count === 1 ? " cambio**" : " cambios**"));
     return lines;
   }
 
-  // Header + one Ticket/App/window line per row.
+  // Header + one short line per row:
+  // "• OCD-229558 | 26/09 | 01:00–02:00 | AUTOMATIZADO | EJECUTADO"
+  // same-day, multi-day as "• TICKET | DD/MM HH:MM → DD/MM HH:MM | REC | EST".
+  // Every row carries the same five segments (blank recurso/estado render
+  // as "—") so the list scans as aligned columns. Wall-string date parts
+  // only (never `new Date`), so the day can never slide in other timezones.
+  // Missing/unparsable bounds fall back to the long window label.
+  function shortParts(value) {
+    var text = cell(value).trim().replace(" ", "T");
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(text);
+    return m ? { day: m[3] + "/" + m[2], time: m[4] + ":" + m[5] } : null;
+  }
+
+  function teamsRowLabel(row) {
+    var ticket = cell(row.ticket).trim() || "?";
+    var recurso = cell(row.recurso).trim() || "—";
+    var estado = cell(row.estado_actual).trim() || "—";
+    var ini = shortParts(row.fec_hora_ini_impl);
+    var fin = shortParts(row.fec_hora_fin_impl);
+    if (!ini || !fin) return "• " + ticket + " | " + windowLabel(row) +
+      " | " + recurso + " | " + estado;
+    if (ini.day === fin.day) {
+      return "• " + ticket + " | " + ini.day + " | " + ini.time + "–" + fin.time +
+        " | " + recurso + " | " + estado;
+    }
+    return "• " + ticket + " | " + ini.day + " " + ini.time +
+      " → " + fin.day + " " + fin.time + " | " + recurso + " | " + estado;
+  }
+
   function toTeamsSummary(rows) {
     var list = Array.isArray(rows) ? rows : [];
     var lines = headerLines(list.length);
     list.forEach(function (row) {
-      lines.push((row.ticket || "?") + " — " + (row.nombre_app || "?") + " (" + windowLabel(row) + ")");
+      lines.push(teamsRowLabel(row));
     });
     return lines.join("\n");
   }

@@ -194,6 +194,10 @@ main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
   width: auto;
   max-width: 150px;
 }
+/* Rechazados opt-in: checkbox + label sharing the toolbar row. Resets the
+ * generic .toolbar input sizing (34px height) for the checkbox. */
+.show-rejected { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; white-space: nowrap; }
+.show-rejected input { height: auto; width: auto; padding: 0; accent-color: var(--primary); }
 .combo-list {
   position: absolute;
   top: calc(100% + 4px);

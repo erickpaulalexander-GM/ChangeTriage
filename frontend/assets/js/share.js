@@ -48,8 +48,10 @@ window.TriageShare = (function () {
   }
 
   // Criteria shape mirrors TriageSearch.getCriteria(): { q, ticket[], app[],
-  // tipo, desde, hasta } where desde/hasta are Lima wall full stamps
-  // ("YYYY-MM-DDTHH:MM:SS" or "") — truncated here to YYYY-MM-DDTHH:MM.
+  // tipo, desde, hasta, showRechazados } where desde/hasta are Lima wall full
+  // stamps ("YYYY-MM-DDTHH:MM:SS" or "") — truncated here to YYYY-MM-DDTHH:MM.
+  // The rechazados flag is emitted only when showing (mostrar_rechazados=1)
+  // so default-hide URLs stay clean.
   function buildParams(criteria) {
     criteria = criteria || {};
     var parts = [];
@@ -67,16 +69,18 @@ window.TriageShare = (function () {
     if (isWallMinute(desde)) parts.push("desde=" + enc(desde));
     var hasta = text(criteria.hasta).trim().slice(0, 16);
     if (isWallMinute(hasta)) parts.push("hasta=" + enc(hasta));
+    if (criteria.showRechazados === true) parts.push("mostrar_rechazados=1");
     return parts.join("&");
   }
 
   // Tolerant: unknown keys and blank values are ignored; first q/tipo/
-  // desde/hasta wins; ticket/app accumulate in order.
+  // desde/hasta/mostrar_rechazados wins; ticket/app accumulate in order.
   function parseParams(searchString) {
-    var out = { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "" };
+    var out = { q: "", ticket: [], app: [], tipo: "", desde: "", hasta: "", showRechazados: false };
     var query = text(searchString);
     if (query.charAt(0) === "?") query = query.slice(1);
     if (!query) return out;
+    var seenRechazados = false;
     var pairs = query.split("&");
     for (var i = 0; i < pairs.length; i++) {
       var pair = pairs[i];
@@ -91,6 +95,12 @@ window.TriageShare = (function () {
       else if (key === "tipo") { if (!out.tipo) out.tipo = value; }
       else if (key === "desde") { if (!out.desde && isWallMinute(value)) out.desde = value; }
       else if (key === "hasta") { if (!out.hasta && isWallMinute(value)) out.hasta = value; }
+      else if (key === "mostrar_rechazados") {
+        if (!seenRechazados) {
+          seenRechazados = true;
+          if (value === "1") out.showRechazados = true;
+        }
+      }
     }
     return out;
   }
@@ -218,6 +228,10 @@ window.TriageShare = (function () {
     if (filter.kind === "tipo") setVal("f-tipo", "");
     else if (filter.kind === "q") setVal("q", "");
     else if (filter.kind === "window") clearWindow();
+    else if (filter.kind === "rechazados") {
+      var showBox = el("f-show-rejected");
+      if (showBox) showBox.checked = false;
+    }
     else return;
     apply();
   }
@@ -234,6 +248,9 @@ window.TriageShare = (function () {
     });
     var tipo = text(criteria.tipo).trim();
     if (tipo) chips.push({ kind: "tipo", value: tipo, label: "Tipo: " + tipo });
+    if (criteria.showRechazados === true) {
+      chips.push({ kind: "rechazados", value: "visibles", label: "Rechazados: visibles" });
+    }
     var win = windowLabel(criteria.desde, criteria.hasta);
     if (win) chips.push({ kind: "window", value: win, label: "Ventana: " + win });
     return chips;
@@ -328,7 +345,7 @@ window.TriageShare = (function () {
 
   function hasPending(state) {
     return !!(state.q || state.ticket.length || state.app.length ||
-      state.tipo || state.desde || state.hasta);
+      state.tipo || state.desde || state.hasta || state.showRechazados);
   }
 
   function splitWall(value) {
@@ -354,6 +371,8 @@ window.TriageShare = (function () {
       }
     }
     setVal("f-tipo", state.tipo || "");
+    var showBox = el("f-show-rejected");
+    if (showBox) showBox.checked = state.showRechazados === true;
     var d = splitWall(state.desde);
     var h = splitWall(state.hasta);
     setVal("f-desde-date", d[0]);
