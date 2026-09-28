@@ -26,17 +26,25 @@ def resolve_source_modified(
 ) -> tuple[datetime, str]:
     """Resolve the source timestamp and its provenance.
 
-    Precedence: the workbook's internal ``properties.modified`` (survives
-    copy/upload/zip) -> filesystem ``st_mtime``. Returns an aware Lima
-    datetime plus ``"internal"`` or ``"filesystem"``.
+    The later of the workbook's internal ``properties.modified`` and the
+    filesystem ``st_mtime`` wins. The bank generator stamps a stale
+    internal date (the export template's save date) on fresh drops, so a
+    fixed internal-first precedence shows an old date while the Explorer
+    shows minutes; max() matches the Explorer there and still catches
+    genuinely new content on mtime-preserving copies. Returns an aware
+    Lima datetime plus ``"internal"`` or ``"filesystem"`` naming the
+    winner. A missing internal property falls back to ``st_mtime``.
     """
-    internal = raw_table.source_modified_utc
-    if internal is not None:
-        aware = internal if internal.tzinfo else internal.replace(tzinfo=timezone.utc)
-        return aware.astimezone(LIMA_TZ), "internal"
     mtime = workbook_path.stat().st_mtime
-    resolved = datetime.fromtimestamp(mtime, tz=timezone.utc).astimezone(LIMA_TZ)
-    return resolved, "filesystem"
+    fs_aware = datetime.fromtimestamp(mtime, tz=timezone.utc).astimezone(LIMA_TZ)
+    internal = raw_table.source_modified_utc
+    if internal is None:
+        return fs_aware, "filesystem"
+    aware = internal if internal.tzinfo else internal.replace(tzinfo=timezone.utc)
+    internal_lima = aware.astimezone(LIMA_TZ)
+    if internal_lima >= fs_aware:
+        return internal_lima, "internal"
+    return fs_aware, "filesystem"
 
 
 def run(settings: Settings) -> int:

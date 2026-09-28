@@ -244,6 +244,11 @@ def test_overlap_sample_window_edges_match_incident() -> None:
 def test_fixture_workbook_end_to_end(tmp_path) -> None:
     """Synthetic .xlsx -> strict parse -> Lima normalize -> valid payload."""
     path = write_workbook(tmp_path / "synthetic.xlsx")
+    # Pin the mtime older than the workbook's own internal save stamp so the
+    # precedence assertion below is deterministic (a just-written file would
+    # race the two clocks).
+    old = datetime(2026, 9, 10, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+    os.utime(path, (old, old))
     table = read_workbook(path, "Hoja1")
     assert list(table.columns) == CANONICAL
     assert table.source_modified_utc is not None
@@ -286,15 +291,32 @@ def test_payload_without_source_fields_is_backward_compatible() -> None:
     assert set(payload.keys()) == {"generated_at", "count", "rows"}
 
 
-def test_resolve_source_modified_prefers_internal_property(tmp_path) -> None:
-    """Internal workbook metadata wins over the filesystem mtime."""
+def test_resolve_source_modified_uses_the_later_timestamp(tmp_path) -> None:
+    """The later of the internal stamp and the filesystem mtime wins.
+
+    The bank generator stamps a stale internal date on fresh drops, so a
+    fixed precedence either way lies in one direction; max() matches the
+    Explorer in the stale-template case and still surfaces genuinely new
+    content on mtime-preserving copies.
+    """
     path = tmp_path / "synthetic.xlsx"
     path.write_bytes(b"placeholder")
-    internal = datetime(2026, 9, 16, 22, 55, 15, tzinfo=timezone.utc)
-    table = RawTable(columns=(), rows=(), source_modified_utc=internal)
-    resolved, provenance = resolve_source_modified(path, table)
-    assert provenance == "internal"
-    assert resolved.isoformat() == "2026-09-16T17:55:15-05:00"
+    mtime = datetime(2026, 9, 16, 23, 0, 0, tzinfo=timezone.utc).timestamp()
+    os.utime(path, (mtime, mtime))
+    # Stale internal (the observed bank case): the mtime wins.
+    stale = datetime(2026, 8, 25, 22, 56, 12, tzinfo=timezone.utc)
+    resolved, provenance = resolve_source_modified(
+        path, RawTable(columns=(), rows=(), source_modified_utc=stale)
+    )
+    assert (provenance, resolved.isoformat()) == (
+        "filesystem", "2026-09-16T18:00:00-05:00")
+    # Fresh internal on a preserved copy: the internal stamp wins.
+    fresh = datetime(2026, 9, 17, 10, 0, 0, tzinfo=timezone.utc)
+    resolved, provenance = resolve_source_modified(
+        path, RawTable(columns=(), rows=(), source_modified_utc=fresh)
+    )
+    assert (provenance, resolved.isoformat()) == (
+        "internal", "2026-09-17T05:00:00-05:00")
 
 
 def test_resolve_source_modified_falls_back_to_mtime(tmp_path) -> None:
