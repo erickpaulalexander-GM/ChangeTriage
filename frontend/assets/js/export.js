@@ -8,7 +8,7 @@ window.TriageExport = (function () {
   // fallback when the result set is empty.
   var COLUMNS = [
     "tribu", "squad", "ticket", "nombre_app", "tipo_cambio", "tipo_cambio2",
-    "estado_actual", "descripcion_cambio",
+    "transversal", "estado_actual", "descripcion_cambio",
     "fec_hora_ini_impl", "fec_hora_fin_impl", "fec_hora_ini_rati",
     "fec_hora_fin_rati", "fec_hora_fin_rati_total",
     "tiempo_reversion", "fec_hor_ini_reversion", "fec_hor_fin_reversion",

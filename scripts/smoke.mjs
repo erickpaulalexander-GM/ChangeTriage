@@ -80,10 +80,11 @@ check("window-date-only-desde", search.parseWindowBound("2026-09-15", "", false)
 check("window-date-only-hasta", search.parseWindowBound("2026-09-15", "", true), "2026-09-15T23:59:59");
 check("window-midnight-no-slide", search.parseWindowBound("2026-09-15", "00:00", false).slice(0, 10), "2026-09-15");
 check("window-no-bounds-pass", search.matchesFilters(ROWS[1], { desde: "", hasta: "" }), true);
-// CSV: 34-column header line when empty; escaping for quote/comma/newline.
+// CSV: canonical column header line when empty; escaping for quote/comma/newline.
+// 35 columns since the 2026-10 "transversal" field joined the contract.
 const emptyCsv = window.TriageExport.toCSV([]);
 check("csv-headers-only", emptyCsv.split("\r\n").length, 2); // header + trailing
-check("csv-col-count", emptyCsv.split("\r\n")[0].split(",").length, 34);
+check("csv-col-count", emptyCsv.split("\r\n")[0].split(",").length, 35);
 const tricky = { ...ROWS[0], descripcion_cambio: 'a"b,c\nd' };
 check("csv-escape", window.TriageExport.toCSV([tricky]).includes('"a""b,c\nd"'), true);
 // Teams: normative header (Change Triage + filter context + count) + one
