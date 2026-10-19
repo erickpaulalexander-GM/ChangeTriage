@@ -677,7 +677,16 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
 .row {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  /* Three tracks, weighted: the main column carries the longest single
+   * line (ticket + meta), while each canal column needs only its label (~
+   * 150px) plus wrapped chips. Equal thirds left ~400px of dead space per
+   * canal column in SharePoint previews, where the available width is
+   * already tighter. Fractions stay identical for every row, so column
+   * starts never wobble between rows. The estado badge is NOT its own
+   * track either: an auto-sized fourth track was sized by each row's own
+   * badge text and shrank these columns per row; .state overlays the right
+   * end of track 3 instead. */
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0 1rem;
   align-items: start;
   text-align: left;
@@ -691,7 +700,7 @@ html[data-theme="light"] .daypick-list { box-shadow: 0 8px 24px rgba(23, 32, 51,
   box-shadow: var(--shadow-card);
 }
 .row-main { min-width: 0; }
-.row .state { grid-column: -1; align-self: start; justify-self: end; margin-top: 0; }
+.row .state { grid-column: -1; grid-row: 1; align-self: start; justify-self: end; margin-top: 0; }
 @media (max-width: 640px) {
   .row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .row-main { grid-column: 1 / -1; }

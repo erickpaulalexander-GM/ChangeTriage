@@ -247,9 +247,11 @@
       stateEl.className = "state " + stateClass(row.estado_actual);
       stateEl.textContent = row.estado_actual;
       // Three-column card: main (ticket + meta) | squad group |
-      // ratificar group, all top-aligned, with the state badge pinned
-      // top-right. Channel groups render only when they carry data; rows
-      // without channel data keep the plain compact shape.
+      // ratificar group, all top-aligned, with the state badge overlaying
+      // the right end of track 3 (never its own grid track, so column
+      // starts stay put across rows of every estado width). Channel
+      // groups render only when they carry data; rows without channel
+      // data keep the plain compact shape.
       var main = document.createElement("div");
       main.className = "row-main";
       main.append(ticket, meta);
@@ -257,11 +259,14 @@
       var squad = channelTokens(row.canales_app_impactadas_segun_squad);
       var ratif = channelTokens(row.canales_app_a_ratificar);
       if (squad.length) {
-        btn.append(canalGroup("CANALES APP IMPACTADAS SEGÚN SQUAD", squad,
+        // Shorter card labels than the drawer/dictionary names: they no
+        // longer force a ~230px nowrap label in a narrow column, and the
+        // meaning stays intact in the drawer detail.
+        btn.append(canalGroup("CANALES SEGÚN SQUAD", squad,
           String(row.canales_app_impactadas_segun_squad).trim()));
       }
       if (ratif.length) {
-        btn.append(canalGroup("CANALES APP A RATIFICAR", ratif,
+        btn.append(canalGroup("CANALES A RATIFICAR", ratif,
           String(row.canales_app_a_ratificar).trim()));
       }
       btn.append(stateEl);
