@@ -55,13 +55,133 @@ def test_typo08_spacing_collapse_resolves_same_key() -> None:
     assert map_headers(drifted) == map_headers(RAW_HEADERS)
 
 
-def test_header_drift_fails_fast() -> None:
-    """One unknown header raises; the column count stays strict."""
-    assert EXPECTED_COLUMN_COUNT == 34
+# --- Tolerant unknown columns (prod: the bank inserted "TRANVERSAL") ---
+
+
+def test_unknown_header_is_tolerated_and_logged(capsys) -> None:
+    """An extra bank column is logged and dropped, not fatal.
+
+    The unknown spelling stands in for any future column the bank adds
+    without notice; the real 2026-10 shape (TRANVERSAL) is now mapped and
+    covered by test_prod_2026_10_shape_maps_transversal below.
+    """
+    assert EXPECTED_COLUMN_COUNT == 35
+    drifted = [*RAW_HEADERS[:33], "XTRA", *RAW_HEADERS[33:]]
+    keys = map_headers(drifted)
+    assert len(keys) == 36
+    assert keys[33] is None
+    assert [key for key in keys if key is not None] == CANONICAL
+    out = capsys.readouterr().err
+    assert "[info] unknown headers (1), values dropped: XTRA" in out
+    assert "[error]" not in out
+
+
+def test_prod_2026_10_shape_maps_transversal(tmp_path) -> None:
+    """The real 2026-10 export layout parses strictly, TRANVERSAL kept.
+
+    BANK_2026_HEADERS now reproduces the prod header row exactly: the
+    duplicated TIPO CAMBIO at 1-based column 32 and TRANVERSAL at column
+    34, between REQUIERE USUARIO ROOT and ESTADO ACTUAL. The dirty
+    <dimension> pad completes the real file shape (45 declared columns).
+    """
+    sheet_rows = [[row[key] for key in CANONICAL] for row in synthetic_rows()]
+    path = write_workbook_with_headers(
+        tmp_path / "prod-2026-10.xlsx",
+        BANK_2026_HEADERS,
+        sheet_rows,
+        DIRTY_DIMENSION_EXTRA_COLUMNS,
+    )
+    table = read_workbook(path, "Hoja1")
+    assert list(table.columns) == CANONICAL
+    assert len(table.columns) == EXPECTED_COLUMN_COUNT
+    rows = normalize_rows(table.rows)
+    assert [row["ticket"] for row in rows] == ["T-1001", "T-1002", "T-1003"]
+    assert [row["transversal"] for row in rows] == ["NO", "NO", "SI"]
+
+
+def test_unknown_and_missing_headers_logged_then_raise(capsys) -> None:
+    """A renamed required header is both a drift note and a fatal missing."""
     drifted = list(RAW_HEADERS)
     drifted[2] = "TIKET DRIFT"
-    with pytest.raises(HeaderDriftError, match="header drift"):
+    with pytest.raises(HeaderDriftError) as excinfo:
         map_headers(drifted)
+    message = str(excinfo.value)
+    assert message == "header drift: missing required column(s): ticket"
+    out = capsys.readouterr().err
+    assert "[info] unknown headers (1), values dropped: TIKET DRIFT" in out
+
+
+def test_empty_header_row_lists_all_missing(capsys) -> None:
+    """An all-empty header row fails naming the full required set."""
+    with pytest.raises(HeaderDriftError, match="header drift"):
+        map_headers([None] * 10)
+    out = capsys.readouterr().err
+    assert "[info] unknown headers (10), values dropped: <empty>" in out
+
+
+@pytest.mark.parametrize("pos", range(EXPECTED_COLUMN_COUNT + 1))
+def test_extra_column_at_any_position_keeps_alignment(tmp_path, pos: int) -> None:
+    """Regression (verify probe): an extra column at ANY position never shifts.
+
+    Every cell is uniquely valued, so a silent positional zip shift — the
+    worst case here, corrupt data without an error — would be observable.
+    """
+    headers = [*RAW_HEADERS]
+    headers.insert(pos, "COLUMNA EXTRA")
+    sheet_rows, expected = [], []
+    for row in range(3):
+        cells = [f"v-{row}-{col}" for col in range(EXPECTED_COLUMN_COUNT)]
+        cells.insert(pos, f"SENTINEL-{row}")
+        sheet_rows.append(cells)
+        expected.append(
+            {key: f"v-{row}-{col}" for col, key in enumerate(CANONICAL)}
+        )
+    path = write_workbook_with_headers(
+        tmp_path / f"extra-{pos}.xlsx", headers, sheet_rows
+    )
+    table = read_workbook(path, "Hoja1")
+    assert list(table.columns) == CANONICAL
+    for index, row in enumerate(table.rows):
+        assert set(row) == set(CANONICAL)
+        assert all(row[key] == value for key, value in expected[index].items())
+        assert not isinstance(row.get("tribu"), str) or not row["tribu"].startswith(
+            "SENTINEL"
+        )
+        assert all(
+            not isinstance(value, str) or not value.startswith("SENTINEL")
+            for value in row.values()
+        )
+
+
+def test_extra_column_above_col32_shifts_duplicate_off_alias_cover() -> None:
+    """Regression (verify probe): the alias only repairs col-32 duplicates.
+
+    An extra column at a sheet position <= 32 (1-based) moves the duplicated
+    "TIPO CAMBIO" off the aliased position, so the run fails fast with the
+    duplicate error instead of tolerating; from position 33 on the repair
+    still fires and the extra column is dropped.
+    """
+    for pos in range(32):
+        headers = [*BANK_2026_HEADERS]
+        headers.insert(pos, "COLUMNA EXTRA")
+        with pytest.raises(HeaderDriftError, match="duplicate column 'tipo_cambio'"):
+            map_headers(headers)
+    headers = [*BANK_2026_HEADERS]
+    headers.insert(32, "COLUMNA EXTRA")
+    keys = map_headers(headers)
+    # 0-based: the duplicate sits at 31 (1-based 32, alias-covered) and the
+    # inserted extra column lands right after it at index 32.
+    assert keys[32] is None and keys[31] == "tipo_cambio2"
+    assert [key for key in keys if key is not None] == CANONICAL
+
+
+def test_empty_and_extra_nontrailing_headers_drop_values(capsys) -> None:
+    """Regression (verify probe): non-trailing blanks and extras are dropped."""
+    entries = map_headers(["XTRA_A", *RAW_HEADERS, None, "XTRA_B"])
+    assert entries[0] is None and entries[36] is None and entries[37] is None
+    assert [key for key in entries if key is not None] == CANONICAL
+    out = capsys.readouterr().err
+    assert "[info] unknown headers (3), values dropped: XTRA_A, <empty>, XTRA_B" in out
 
 
 # --- Dirty <dimension> regression (prod: the bank dropped Excel Table) ---
@@ -105,8 +225,13 @@ def test_dirty_dimension_workbook_parses_every_row(tmp_path) -> None:
     assert rows[2]["tipo_cambio2"] == "ADICIONAL"
 
 
-def test_dirty_dimension_still_rejects_non_trailing_drift(tmp_path) -> None:
-    """Trailing padding is tolerated; a real unknown header still fails."""
+def test_dirty_dimension_still_rejects_missing_required_header(tmp_path) -> None:
+    """Trailing padding is tolerated; missing required headers still fail.
+
+    A renamed header (TIKET DRIFT stands in for TICKET) is unmapped, so the
+    required set loses ``ticket`` and the run still fails fast even though
+    unknown columns are otherwise tolerated.
+    """
     headers = [*RAW_HEADERS, *([None] * DIRTY_DIMENSION_EXTRA_COLUMNS)]
     headers[2] = "TIKET DRIFT"
     path = write_header_only_workbook(
@@ -127,7 +252,7 @@ def test_dirty_dimension_empty_header_row_still_rejected(tmp_path) -> None:
 
 
 def test_short_header_row_still_rejected_by_count(tmp_path) -> None:
-    """A trimmed row below the expected width fails on the count check."""
+    """A trimmed row below the required width fails on the missing check."""
     headers = list(RAW_HEADERS)[:-1] + [None]
     path = write_header_only_workbook(tmp_path / "short.xlsx", headers)
     with pytest.raises(HeaderDriftError, match="header drift"):
@@ -173,12 +298,12 @@ def test_positional_alias_workbook_keeps_both_change_types(tmp_path) -> None:
 def test_duplicate_at_non_aliased_position_raises_with_detail() -> None:
     """An uncovered duplicate fails fast naming key, positions and values."""
     drifted = list(RAW_HEADERS)
-    drifted[4] = "ESTADO ACTUAL"  # duplicates column 34; position 5 is not aliased
+    drifted[4] = "ESTADO ACTUAL"  # duplicates column 35; position 5 is not aliased
     with pytest.raises(HeaderDriftError) as excinfo:
         map_headers(drifted)
     message = str(excinfo.value)
     assert "duplicate column 'estado_actual'" in message
-    assert "positions 5 and 34" in message
+    assert "positions 5 and 35" in message
     assert "ESTADO ACTUAL" in message
 
 

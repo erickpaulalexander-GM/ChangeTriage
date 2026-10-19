@@ -16,11 +16,19 @@ from backend.parser_excel import HEADER_MAP
 
 # Raw header spellings that normalize to the strict map (already collapsed
 # uppercase; the typo-08 "FEC .HORA. FIN. IMPL" spacing is kept verbatim).
-RAW_HEADERS: list[str] = list(HEADER_MAP)
+# First spelling wins per canonical key: the corrected "TRANSVERSAL" never
+# repeats "TRANVERSAL"'s slot in the synthetic layout.
+RAW_HEADERS: list[str] = []
+_seen: set[str] = set()
+for _header in HEADER_MAP:
+    if HEADER_MAP[_header] not in _seen:
+        _seen.add(HEADER_MAP[_header])
+        RAW_HEADERS.append(_header)
 CANONICAL: list[str] = [HEADER_MAP[header] for header in RAW_HEADERS]
 
 # The bank's export declares <dimension ref="A1:AR596"/> while the real data
-# ends at column AH (34 real headers). AR is column 44, i.e. 10 extra.
+# ends at column AH (35 real headers since the 2026-10 TRANVERSAL addition).
+# AR is column 44, i.e. 10 extra.
 DIRTY_DIMENSION_EXTRA_COLUMNS = 10
 
 # The bank's export uses the 1-based column position, so the duplicated
@@ -28,9 +36,9 @@ DIRTY_DIMENSION_EXTRA_COLUMNS = 10
 DUPLICATED_HEADER_COLUMN = 32
 DUPLICATED_HEADER_INDEX = DUPLICATED_HEADER_COLUMN - 1
 
-# The 2026-09 bank export: column 32 repeats column 5's "TIPO CAMBIO"
-# spelling instead of shipping the distinct "TIPO CAMBIO2". Every other
-# header is unchanged, so this reproduces the prod header row exactly.
+# The 2026-09/2026-10 bank export: column 32 repeats column 5's "TIPO
+# CAMBIO" spelling, and the 2026-10 drop adds "TRANVERSAL" at column 34.
+# Every other header is unchanged, so this reproduces the prod header row.
 BANK_2026_HEADERS: list[str] = [
     RAW_HEADERS[4] if index == DUPLICATED_HEADER_INDEX else header
     for index, header in enumerate(RAW_HEADERS)
@@ -44,7 +52,7 @@ SAMPLE_INCIDENT_ISO = "2026-09-14T03:00:00-05:00"
 
 
 def make_row(**overrides: object) -> dict[str, object]:
-    """Build a 34-key canonical row; unspecified fields stay null."""
+    """Build a canonical row (one key per mapped column); nulls stay null."""
     row: dict[str, object] = dict.fromkeys(CANONICAL)
     row.update(overrides)
     return row
@@ -61,6 +69,7 @@ def synthetic_rows() -> list[dict[str, object]]:
         "estado_actual": "EJECUTADO",
         "recurso": "synthetic.user",
         "fecha_registro": "14/09/2026 00:00",
+        "transversal": "NO",
     }
     return [
         make_row(**{**base, "ticket": "T-1001",
@@ -70,6 +79,7 @@ def synthetic_rows() -> list[dict[str, object]]:
         make_row(**{**base, "ticket": "T-1002", "squad": "   ",
                     "fec_hora_ini_impl": None, "fec_hora_fin_impl": None}),
         make_row(**{**base, "ticket": "T-1003", "tipo_cambio2": "ADICIONAL",
+                    "transversal": "SI",
                     "fec_hora_ini_impl": "14/09/2026 10:00",
                     "fec_hora_fin_impl": "14/09/2026 12:00"}),
     ]

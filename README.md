@@ -21,7 +21,9 @@ exports from that JSON. No framework, no backend runtime.
    to file mtime). The SPA header shows that source date — the build time
    (`generated_at`) lives in its tooltip.
    Dates are America/Lima ISO (`-05:00`); nulls are preserved.
-   The run fails non-zero on header drift or bad dates and writes nothing.
+   The run fails non-zero when a required header is missing or duplicated,
+   or a date is unparseable, and writes nothing. Extra columns the bank adds
+   are tolerated: logged with counts and names, their values dropped.
 
 `run.py` is the entry point (pure Python, no `.bat`, no `uv`).
 

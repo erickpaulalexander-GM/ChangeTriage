@@ -1,14 +1,17 @@
 """Strict Excel ingestion for the Change Triage pipeline.
 
 Reads the workbook with ``openpyxl`` and maps every raw header through a
-validated normalized header map. Any unknown header fails fast with a
-non-zero exit and no partial output is ever written.
+validated normalized header map. Extra columns from the bank are tolerated
+at the boundary: they are logged with counts and names, and their values
+are never carried into rows. A missing required header, an unrepaired
+duplicate, or a fully empty header row still fails fast with a non-zero
+exit, and no partial output is ever written.
 
 One file-format tolerance is applied at the boundary: ``openpyxl`` in
 ``read_only`` mode trusts the worksheet ``<dimension>`` record, so a
 stale/oversized range pads every row with ``None`` up to the declared
 width. Only *trailing* empty header cells are trimmed; an empty or
-unknown header in any non-trailing position still fails fast.
+unknown header in any non-trailing position fails the required-set check.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from .utils import log_error, normalize_header
+from .utils import log_error, log_info, normalize_header
 
 try:
     import openpyxl
@@ -70,10 +73,24 @@ HEADER_MAP: dict[str, str] = {
     # null: 31 of 595 rows carry "Certificado" here.
     "TIPO CAMBIO2": "tipo_cambio2",
     "REQUIERE USUARIO ROOT": "requiere_usuario_root",
+    # 2026-10 export: the bank inserted this transversal-pass classifier
+    # (SI/NO) at 1-based column 34, between REQUIERE USUARIO ROOT and
+    # ESTADO ACTUAL. Mapped as a nullable field. The corrected spelling is
+    # mapped too, so fixing the bank typo can never break ingestion.
+    "TRANVERSAL": "transversal",
+    "TRANSVERSAL": "transversal",
     "ESTADO ACTUAL": "estado_actual",
 }
 
-EXPECTED_COLUMN_COUNT = len(HEADER_MAP)
+# Canonical column count. Two raw spellings ("TRANVERSAL" and the corrected
+# "TRANSVERSAL") share the "transversal" key, so the map has one more entry
+# than there are columns.
+EXPECTED_COLUMN_COUNT = len(frozenset(HEADER_MAP.values()))
+
+# Every canonical key the rows contract needs; a workbook that lost one of
+# these (a rename, a deletion) still fails fast even though extra columns
+# are tolerated.
+REQUIRED_KEYS: frozenset[str] = frozenset(HEADER_MAP.values())
 
 # 1-based column position -> the header spelling the export SHOULD have used.
 #
@@ -111,24 +128,25 @@ class RawTable:
 
 
 def _resolve_duplicate_headers(
-    raw_headers: list[object], canonical: list[str]
-) -> list[str]:
+    raw_headers: list[object], canonical: list[str | None]
+) -> list[str | None]:
     """Repair aliased duplicate headers, or raise on an unrepairable one.
 
     ``HEADER_MAP`` is name-keyed, so two header cells spelled the same way
-    collapse onto one canonical key. Left alone, ``dict(zip(...))`` would
-    silently drop one of them and surface two layers down as a confusing
-    ``SchemaError: key mismatch``. Here a duplicate is repaired only when
-    its column position is covered by :data:`POSITIONAL_HEADER_ALIASES` and
+    collapse onto one canonical key. Left alone, the header row would be
+    ambiguous at those positions. A duplicate is repaired only when its
+    column position is covered by :data:`POSITIONAL_HEADER_ALIASES` and
     the alias target is not already taken; anything else fails fast here,
     at the header layer, with the positions and raw values named.
 
-    ``raw_headers`` and ``canonical`` are index-aligned: the caller rejects
-    unknown headers before calling, so every raw cell produced a key.
+    ``raw_headers`` and ``canonical`` are index-aligned: ``canonical`` may
+    carry ``None`` for tolerated unknown columns, which never take part in
+    duplicate resolution.
     """
     positions: dict[str, list[int]] = {}
     for index, key in enumerate(canonical):
-        positions.setdefault(key, []).append(index + 1)
+        if key is not None:
+            positions.setdefault(key, []).append(index + 1)
 
     resolved = list(canonical)
     # Canonical keys already claimed by a unique column, so an alias can
@@ -157,31 +175,40 @@ def _resolve_duplicate_headers(
     return resolved
 
 
-def map_headers(raw_headers: list[object]) -> list[str]:
-    """Map raw headers to canonical keys; raise on any drift."""
-    canonical: list[str] = []
+def map_headers(raw_headers: list[object]) -> list[str | None]:
+    """Map raw headers to canonical keys, position-aligned.
+
+    Returns one entry per raw position: the canonical key for a known
+    header, or ``None`` for an extra/unknown column — logged once with
+    counts and names, then dropped from every row. A missing required
+    header and an unrepaired duplicate still raise :class:`HeaderDriftError`,
+    so renames and deletions keep failing fast while pure additions pass.
+    """
+    entries: list[str | None] = []
     unknown: list[str] = []
     for header in raw_headers:
-        normalized = normalize_header(header)
-        key = HEADER_MAP.get(normalized)
+        key = HEADER_MAP.get(normalize_header(header))
         if key is None:
+            normalized = normalize_header(header)
             unknown.append(normalized or "<empty>")
+            entries.append(None)
         else:
-            canonical.append(key)
+            entries.append(key)
     if unknown:
-        log_error(f"unmapped headers ({len(unknown)}): {', '.join(unknown)}")
-        raise HeaderDriftError(
-            f"header drift: {len(unknown)} unmapped header(s): "
+        log_info(
+            f"unknown headers ({len(unknown)}), values dropped: "
             + ", ".join(unknown)
         )
-    # Unknown headers are rejected above, so this keeps index alignment.
-    canonical = _resolve_duplicate_headers(raw_headers, canonical)
-    if len(canonical) != EXPECTED_COLUMN_COUNT:
+    # Duplicate repair runs before the required-set check: both must be
+    # diagnosed from the *resolved* row, and an alias repair restores a
+    # canonical key (e.g. the TIPO CAMBIO duplicate) that the raw set lacks.
+    entries = _resolve_duplicate_headers(raw_headers, entries)
+    missing = sorted(REQUIRED_KEYS - {key for key in entries if key is not None})
+    if missing:
         raise HeaderDriftError(
-            f"header drift: expected {EXPECTED_COLUMN_COUNT} columns, "
-            f"got {len(canonical)}"
+            "header drift: missing required column(s): " + ", ".join(missing)
         )
-    return canonical
+    return entries
 
 
 def _trim_trailing_empty_headers(raw_headers: list[object]) -> list[object]:
@@ -230,12 +257,20 @@ def read_workbook(path: Path, sheet: str) -> RawTable:
         worksheet = workbook[sheet]
         iterator = worksheet.iter_rows(values_only=True)
         raw_headers = list(next(iterator, []))
-        # Boundary tolerance only: drop a dirty-dimension trailing pad, then
-        # map strictly. ``columns`` is trimmed, so the padded data rows are
-        # truncated by ``strict=False`` in the zip below.
-        columns = map_headers(_trim_trailing_empty_headers(raw_headers))
+        # Boundary tolerance: drop a dirty-dimension trailing pad, then map
+        # strictly on the required set. ``key_plan`` is index-aligned with
+        # the raw header row, so the per-row zip keeps every known value on
+        # its own column even with extra columns present; the tolerated
+        # positions carry ``None`` and never reach a row dict.
+        key_plan = map_headers(_trim_trailing_empty_headers(raw_headers))
+        columns = tuple(key for key in key_plan if key is not None)
         rows = [
-            dict(zip(columns, values, strict=False)) for values in iterator
+            {
+                key: value
+                for key, value in zip(key_plan, values, strict=False)
+                if key is not None
+            }
+            for values in iterator
         ]
     finally:
         workbook.close()

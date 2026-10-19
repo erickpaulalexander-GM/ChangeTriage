@@ -1,9 +1,10 @@
 """Generate ``workspace/output/data.json`` from the staged workbook.
 
 Pipeline: find workbook -> strict parse -> Lima normalize -> validate ->
-atomic emit. Exits non-zero on header drift, bad dates, or a missing
-workbook, and never writes partial output. Logs carry counts, paths, and
-error classes only — never row values.
+atomic emit. Exits non-zero on a missing or duplicated required header,
+bad dates, or a missing workbook; extra unknown columns are tolerated
+and logged, their values dropped. Never writes partial output. Logs
+carry counts, paths, and error classes only — never row values.
 """
 
 from __future__ import annotations
