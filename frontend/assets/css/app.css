@@ -117,7 +117,7 @@ body {
 }
 .theme-toggle:focus-visible { box-shadow: 0 0 0 2px var(--tint-warning); }
 
-main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+main { max-width: 100%; margin: 0 auto; padding: 1.5rem; }
 .status { color: var(--muted); }
 
 /* Compact layout (C1): the opbar bar is gone — its three indicators live
