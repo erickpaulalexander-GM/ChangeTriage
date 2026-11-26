@@ -31,8 +31,11 @@ CANONICAL: list[str] = [HEADER_MAP[header] for header in RAW_HEADERS]
 # AR is column 44, i.e. 10 extra.
 DIRTY_DIMENSION_EXTRA_COLUMNS = 10
 
-# The bank's export uses the 1-based column position, so the duplicated
-# spelling sits at 0-based index 31 (column 32, sheet column AF).
+# The 2026-09 export puts the duplicated spelling at 1-based column 32
+# (0-based index 31, sheet column AF). Prod moved it to 33 when the bank
+# inserted RESPONSABLE at column 26 in 2026-11; this fixture keeps the
+# older shape on purpose, and the suite covers the shift by inserting an
+# extra column at every position.
 DUPLICATED_HEADER_COLUMN = 32
 DUPLICATED_HEADER_INDEX = DUPLICATED_HEADER_COLUMN - 1
 

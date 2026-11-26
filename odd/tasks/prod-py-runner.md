@@ -121,7 +121,7 @@ Runner: `py -m pytest backend/tests -q`
    fails non-zero with `HeaderDriftError` and writes no output.
 5. No `uv` invocation remains in the runtime path or docs.
 6. `Config-Prod.txt` points `input_dir` at the `iTop` folder.
-7. A duplicated canonical key outside `POSITIONAL_HEADER_ALIASES` fails
+7. A duplicated canonical key outside `DUPLICATE_REPAIRS` fails
    with `HeaderDriftError` naming both positions and both raw values.
 
 ## Applicable checks
@@ -205,6 +205,6 @@ Push the branch, then on the bank PC: replace `config.yaml` with the
 `run.bat` until the first successful prod run is confirmed.
 
 **Open item requiring bank confirmation:** the `AF1` → `tipo_cambio2`
-positional alias is an evidence-backed inference about their export. It
+duplicate repair is an evidence-backed inference about their export. It
 should be confirmed with the bank, who can also fix the header at source
-so the alias becomes unnecessary.
+so the repair becomes unnecessary.

@@ -69,8 +69,8 @@ HEADER_MAP: dict[str, str] = {
     # Second classification column. Shipped as "TIPO CAMBIO2" by the
     # pre-Table export; kept as a nullable field and never dropped. The
     # 2026-09 export repeats "TIPO CAMBIO" in this slot instead, which is
-    # repaired positionally via POSITIONAL_HEADER_ALIASES. No longer always
-    # null: 31 of 595 rows carry "Certificado" here.
+    # repaired via DUPLICATE_REPAIRS. No longer always null: 31 of 595
+    # rows carry "Certificado" here.
     "TIPO CAMBIO2": "tipo_cambio2",
     "REQUIERE USUARIO ROOT": "requiere_usuario_root",
     # 2026-10 export: the bank inserted this transversal-pass classifier
@@ -92,24 +92,28 @@ EXPECTED_COLUMN_COUNT = len(frozenset(HEADER_MAP.values()))
 # are tolerated.
 REQUIRED_KEYS: frozenset[str] = frozenset(HEADER_MAP.values())
 
-# 1-based column position -> the header spelling the export SHOULD have used.
+# Canonical key that the export duplicated -> the canonical key that
+# duplicate really means.
 #
 # HEADER_MAP is name-keyed, so a duplicated header name cannot be repaired
-# with a plain dict entry: the 2026-09 export writes "TIPO CAMBIO" in
-# column 32, byte-identical to column 5. Evidence that this is an export
-# typo rather than a semantic removal:
-#   * column 32 is the exact position the pre-Table export used for
-#     "TIPO CAMBIO2", and the other 33 headers are unchanged in both
-#     spelling and position;
+# with a plain dict entry: the 2026-09 export writes "TIPO CAMBIO" in the
+# second classification slot, byte-identical to column 5. Evidence that this
+# is an export typo rather than a semantic removal:
+#   * that slot is the exact position the pre-Table export used for
+#     "TIPO CAMBIO2", and the other headers are unchanged in spelling;
 #   * 31 of the 595 rows populate it with "Certificado" (18 Cambio Menor,
 #     6 Cambio Estandar Automatizado, 4 Cambio Documentario, 3 Cambio Mayor);
 #   * every one of those 31 rows ALSO carries a primary "TIPO CAMBIO"
 #     value, so the column is a second classification, not a replacement.
 #
-# Deliberately a single-position table, not a general aliasing framework:
-# every new entry needs the same position-and-coexistence evidence.
-POSITIONAL_HEADER_ALIASES: dict[int, str] = {
-    32: "TIPO CAMBIO2",
+# Deliberately keyed by the duplicated *name*, never by column position.
+# The bank inserts columns freely — RESPONSABLE at column 26 in the
+# 2026-11 export moved the duplicate from 32 to 33 and broke the old
+# position table — so a repair keyed on absolute positions breaks again
+# on the next insertion. Every new entry needs the same coexistence
+# evidence as the TIPO CAMBIO case.
+DUPLICATE_REPAIRS: dict[str, str] = {
+    "tipo_cambio": "tipo_cambio2",
 }
 
 
@@ -130,14 +134,14 @@ class RawTable:
 def _resolve_duplicate_headers(
     raw_headers: list[object], canonical: list[str | None]
 ) -> list[str | None]:
-    """Repair aliased duplicate headers, or raise on an unrepairable one.
+    """Repair evidence-backed duplicate headers, or raise on an unrepairable one.
 
     ``HEADER_MAP`` is name-keyed, so two header cells spelled the same way
     collapse onto one canonical key. Left alone, the header row would be
     ambiguous at those positions. A duplicate is repaired only when its
-    column position is covered by :data:`POSITIONAL_HEADER_ALIASES` and
-    the alias target is not already taken; anything else fails fast here,
-    at the header layer, with the positions and raw values named.
+    canonical key is listed in :data:`DUPLICATE_REPAIRS` and the repair
+    target is not already taken; anything else fails fast here, at the
+    header layer, with the positions and raw values named.
 
     ``raw_headers`` and ``canonical`` are index-aligned: ``canonical`` may
     carry ``None`` for tolerated unknown columns, which never take part in
@@ -149,7 +153,7 @@ def _resolve_duplicate_headers(
             positions.setdefault(key, []).append(index + 1)
 
     resolved = list(canonical)
-    # Canonical keys already claimed by a unique column, so an alias can
+    # Canonical keys already claimed by a unique column, so a repair can
     # never steal one.
     taken = {key for key, columns in positions.items() if len(columns) == 1}
 
@@ -158,20 +162,17 @@ def _resolve_duplicate_headers(
             continue
         first, *rest = columns
         taken.add(key)
+        target = DUPLICATE_REPAIRS.get(key)
         for position in rest:
-            spelling = POSITIONAL_HEADER_ALIASES.get(position)
-            alias_key = (
-                None if spelling is None else HEADER_MAP.get(normalize_header(spelling))
-            )
-            if alias_key is None or alias_key in taken:
+            if target is None or target in taken:
                 raise HeaderDriftError(
                     f"header drift: duplicate column {key!r} at positions "
                     f"{first} and {position} "
                     f"(raw: {raw_headers[first - 1]!r} and "
                     f"{raw_headers[position - 1]!r}); expected {key!r} only once"
                 )
-            resolved[position - 1] = alias_key
-            taken.add(alias_key)
+            resolved[position - 1] = target
+            taken.add(target)
     return resolved
 
 
@@ -200,7 +201,7 @@ def map_headers(raw_headers: list[object]) -> list[str | None]:
             + ", ".join(unknown)
         )
     # Duplicate repair runs before the required-set check: both must be
-    # diagnosed from the *resolved* row, and an alias repair restores a
+    # diagnosed from the *resolved* row, and the repair restores a
     # canonical key (e.g. the TIPO CAMBIO duplicate) that the raw set lacks.
     entries = _resolve_duplicate_headers(raw_headers, entries)
     missing = sorted(REQUIRED_KEYS - {key for key in entries if key is not None})

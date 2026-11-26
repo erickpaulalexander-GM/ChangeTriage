@@ -19,8 +19,8 @@ from backend.normalizador import (
     parse_lima_datetime,
 )
 from backend.parser_excel import (
+    DUPLICATE_REPAIRS,
     EXPECTED_COLUMN_COUNT,
-    POSITIONAL_HEADER_ALIASES,
     HeaderDriftError,
     RawTable,
     _trim_trailing_empty_headers,
@@ -34,7 +34,6 @@ from .fixtures import (
     BANK_2026_HEADERS,
     CANONICAL,
     DIRTY_DIMENSION_EXTRA_COLUMNS,
-    DUPLICATED_HEADER_COLUMN,
     DUPLICATED_HEADER_INDEX,
     RAW_HEADERS,
     SAMPLE_INCIDENT_ISO,
@@ -153,25 +152,35 @@ def test_extra_column_at_any_position_keeps_alignment(tmp_path, pos: int) -> Non
         )
 
 
-def test_extra_column_above_col32_shifts_duplicate_off_alias_cover() -> None:
-    """Regression (verify probe): the alias only repairs col-32 duplicates.
+def test_extra_column_anywhere_keeps_the_duplicate_repair() -> None:
+    """Any upstream insertion is tolerated; column positions never matter.
 
-    An extra column at a sheet position <= 32 (1-based) moves the duplicated
-    "TIPO CAMBIO" off the aliased position, so the run fails fast with the
-    duplicate error instead of tolerating; from position 33 on the repair
-    still fires and the extra column is dropped.
+    Prod (2026-11): the bank inserted RESPONSABLE at column 26, moving the
+    duplicated "TIPO CAMBIO" from 32 to 33 and breaking the old absolute
+    position alias. An unknown column is dropped wherever it lands, and the
+    duplicate still resolves to tipo_cambio2 at its shifted index.
     """
-    for pos in range(32):
+    for pos in range(len(BANK_2026_HEADERS) + 1):
         headers = [*BANK_2026_HEADERS]
         headers.insert(pos, "COLUMNA EXTRA")
-        with pytest.raises(HeaderDriftError, match="duplicate column 'tipo_cambio'"):
-            map_headers(headers)
+        keys = map_headers(headers)
+        assert keys[pos] is None, pos
+        assert keys.count("tipo_cambio") == 1, pos
+        assert keys.count("tipo_cambio2") == 1, pos
+        # The duplicate sat at 0-based 31; an insert at or before it shifts
+        # it one slot right, an insert after it leaves it in place.
+        assert keys.index("tipo_cambio2") == (32 if pos <= 31 else 31), pos
+        assert [key for key in keys if key is not None] == CANONICAL, pos
+
+
+def test_prod_responsable_insertion_shifts_duplicate_and_still_parses() -> None:
+    """Prod regression: RESPONSABLE at column 26 leaves the duplicate at 33."""
     headers = [*BANK_2026_HEADERS]
-    headers.insert(32, "COLUMNA EXTRA")
+    headers.insert(25, "RESPONSABLE")  # 1-based column 26, as the bank ships it
     keys = map_headers(headers)
-    # 0-based: the duplicate sits at 31 (1-based 32, alias-covered) and the
-    # inserted extra column lands right after it at index 32.
-    assert keys[32] is None and keys[31] == "tipo_cambio2"
+    assert keys[25] is None  # unknown -> dropped, reported once as info
+    assert keys[4] == "tipo_cambio"
+    assert keys[32] == "tipo_cambio2"  # 1-based 33, one past the old alias's 32
     assert [key for key in keys if key is not None] == CANONICAL
 
 
@@ -259,17 +268,19 @@ def test_short_header_row_still_rejected_by_count(tmp_path) -> None:
         read_workbook(path, "Hoja1")
 
 
-# --- Duplicated header: the bank repeats column 5's spelling at column 32 ---
+# --- Duplicated header: the bank repeats column 5's spelling in the
+# second classification slot (column 32 in the 2026-09 export, column 33
+# after the 2026-11 RESPONSABLE insertion) ---
 
 
 def test_bank_2026_headers_repeat_the_column_5_spelling() -> None:
-    """The fixture really is a duplicate, and the alias covers that column."""
+    """The fixture really is a duplicate, and the repair table covers it."""
     assert BANK_2026_HEADERS[DUPLICATED_HEADER_INDEX] == "TIPO CAMBIO"
     assert BANK_2026_HEADERS[DUPLICATED_HEADER_INDEX] == BANK_2026_HEADERS[4]
-    assert POSITIONAL_HEADER_ALIASES[DUPLICATED_HEADER_COLUMN] == "TIPO CAMBIO2"
+    assert DUPLICATE_REPAIRS["tipo_cambio"] == "tipo_cambio2"
 
 
-def test_positional_alias_repairs_the_duplicated_header() -> None:
+def test_duplicate_repair_resolves_the_repeated_header() -> None:
     """The duplicate resolves to tipo_cambio2 instead of colliding."""
     columns = map_headers(BANK_2026_HEADERS)
     assert columns == CANONICAL
@@ -277,7 +288,7 @@ def test_positional_alias_repairs_the_duplicated_header() -> None:
     assert columns[DUPLICATED_HEADER_INDEX] == "tipo_cambio2"
 
 
-def test_positional_alias_workbook_keeps_both_change_types(tmp_path) -> None:
+def test_duplicate_repair_workbook_keeps_both_change_types(tmp_path) -> None:
     """End to end: no collapsed key, and the second classification survives."""
     sheet_rows = [[row[key] for key in CANONICAL] for row in synthetic_rows()]
     path = write_workbook_with_headers(
@@ -295,10 +306,10 @@ def test_positional_alias_workbook_keeps_both_change_types(tmp_path) -> None:
     assert all(row["tipo_cambio"] == "NORMAL" for row in rows)
 
 
-def test_duplicate_at_non_aliased_position_raises_with_detail() -> None:
-    """An uncovered duplicate fails fast naming key, positions and values."""
+def test_unrepairable_duplicate_raises_with_detail() -> None:
+    """A duplicate with no repair entry fails fast naming key, positions, values."""
     drifted = list(RAW_HEADERS)
-    drifted[4] = "ESTADO ACTUAL"  # duplicates column 35; position 5 is not aliased
+    drifted[4] = "ESTADO ACTUAL"  # duplicates column 35; estado_actual is not repairable
     with pytest.raises(HeaderDriftError) as excinfo:
         map_headers(drifted)
     message = str(excinfo.value)
@@ -307,8 +318,8 @@ def test_duplicate_at_non_aliased_position_raises_with_detail() -> None:
     assert "ESTADO ACTUAL" in message
 
 
-def test_alias_refuses_when_its_target_is_already_taken() -> None:
-    """A taken alias target is not stolen; the duplicate still fails fast."""
+def test_duplicate_repair_refuses_when_target_already_taken() -> None:
+    """A taken repair target is not stolen; the duplicate still fails fast."""
     drifted = list(RAW_HEADERS)
     drifted[3] = "TIPO CAMBIO2"  # column 4 now claims tipo_cambio2
     drifted[DUPLICATED_HEADER_INDEX] = "TIPO CAMBIO"  # ...and column 32 duplicates
@@ -322,7 +333,7 @@ def test_alias_refuses_when_its_target_is_already_taken() -> None:
 def test_uncovered_duplicate_workbook_still_fails_fast(tmp_path) -> None:
     """The guard also holds on the read path, not only in map_headers."""
     drifted = list(BANK_2026_HEADERS)
-    # Break column 5; the column-32 alias no longer applies.
+    # Break column 5: estado_actual has no repair entry, so it still raises.
     drifted[4] = "ESTADO ACTUAL"
     path = write_header_only_workbook(tmp_path / "dup.xlsx", drifted)
     with pytest.raises(HeaderDriftError, match="duplicate column"):
