@@ -646,8 +646,45 @@ const shareCode = readFileSync(join(jsDir, "share.js"), "utf8");
 check("share-bundle-safe", /<\/script/i.test(shareCode), false);
 check("share-script-tag", /src="assets\/js\/share\.js"/.test(html), true);
 const brandSide = /<div class="brand-side">[\s\S]*?<\/div>/.exec(html);
-check("updated-slot-in-results-bar", /id="kyndryl-updated"/.test(html)
-  && !(brandSide && /kyndryl-updated/.test(brandSide[0])), true);
+const siteHeader = /<header class="site-header">[\s\S]*?<\/header>/.exec(html);
+const freshness = /<div class="freshness"[^>]*id="freshness"[\s\S]*?<\/div>/.exec(html);
+const appCss = readFileSync(join(root, "frontend", "assets", "css", "app.css"), "utf8");
+
+/* ---- Freshness segment (top header): "✓ Actualización: hace X" and
+ * "Fuente: <workbook> · hace Y", aged client-side from the data.json
+ * timestamps. It lives in .site-header (2026-11 layout decision), never as
+ * a live region (the text re-renders every minute), and turns
+ * freshness--stale past STALE_MS. */
+check("freshness-in-site-header", !!siteHeader && !!freshness
+  && /id="freshness"/.test(siteHeader[0]) && !/kyndryl-updated/.test(html), true);
+check("freshness-labels-and-slots", !!freshness
+  && /Actualización:/.test(freshness[0]) && /Fuente:/.test(freshness[0])
+  && /id="freshness-status"/.test(freshness[0])
+  && /id="freshness-updated"/.test(freshness[0])
+  && /id="freshness-source"/.test(freshness[0]), true);
+check("freshness-not-a-live-region", !!freshness && !/aria-live/.test(freshness[0]), true);
+
+// app.js is loaded with readyState "loading" so its init never touches the
+// DOM; fmtAgo is exposed on window.Triage for this contract.
+const appSource = readFileSync(join(jsDir, "app.js"), "utf8");
+const appApi = new Function("window", "document", "console",
+  `${appSource}; return window.Triage;`)(
+    {}, { readyState: "loading", addEventListener() {}, getElementById() { return null; } },
+    console);
+check("freshness-ago-exposed", typeof appApi.fmtAgo, "function");
+check("freshness-ago-empty", appApi.fmtAgo?.(""), "—");
+check("freshness-ago-invalid", appApi.fmtAgo?.("not-a-date"), "—");
+check("freshness-ago-moment",
+  appApi.fmtAgo?.(new Date(Date.now() - 10000).toISOString()), "hace un momento");
+check("freshness-ago-minutes",
+  appApi.fmtAgo?.(new Date(Date.now() - 300000).toISOString()), "hace 5 min");
+check("freshness-ago-hours",
+  appApi.fmtAgo?.(new Date(Date.now() - 3 * 3600000).toISOString()), "hace 3 h");
+check("freshness-ago-days",
+  appApi.fmtAgo?.(new Date(Date.now() - 2 * 86400000).toISOString()), "hace 2 d");
+check("freshness-refresh-interval", /setInterval\(\s*updateFreshness/.test(appSource), true);
+check("freshness-stale-class", /freshness--stale/.test(appSource)
+  && /\.freshness--stale/.test(appCss), true);
 check("share-copy-link-btn", /id="copy-link"/.test(html) && /Copiar enlace filtrado/.test(html), true);
 check("share-active-filters-div", /id="active-filters"/.test(html), true);
 check("share-active-filters-hidden-empty", /id="active-filters"[^>]*hidden/.test(html), true);

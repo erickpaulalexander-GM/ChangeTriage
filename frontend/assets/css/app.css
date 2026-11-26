@@ -73,30 +73,54 @@ body {
 .subtitle { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.8rem; }
 .logo { height: 30px; max-width: 140px; object-fit: contain; }
 .logo-kyndryl { height: 42px; max-width: 190px; }
-/* Compact layout (C1): source-date slot stacked under the Kyndryl logo
- * (right-aligned column so the header stays at ~72px). */
+/* Kyndryl brand mark: right-aligned column so the header stays ~72px. */
 .brand-side {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.1rem;
 }
-/* Results bar: count left, source-date right (moved down from the header
- * so the freshness signal sits with the data it describes). */
+/* Results bar: the count line sits with the list it describes. The
+ * freshness signal lives in .site-header (see .freshness below). */
 .results-bar {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
   margin: 0.75rem 0 0;
 }
-.kyndryl-meta {
-  color: var(--muted);
+
+/* Freshness segment (top header, right side): client-side relative age of
+ * the build ("Actualización") and of the source workbook ("Fuente"), both
+ * read from the data.json timestamps. This is a static page — there is no
+ * backend to poll, so the ages grow until the next pipeline run and the
+ * green check means "source under STALE_MS old" (app.js), amber
+ * freshness--stale after that. Theme vars only: a hard-coded dark strip
+ * would break the light palette. The text re-renders every minute, so it
+ * must never carry aria-live (the count line stays the live region). */
+.freshness {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.7rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  color: var(--text);
   font-size: 0.75rem;
   line-height: 1.2;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* Neutral before data lands; green freshness--fresh while the source is
+ * under STALE_MS old, amber freshness--stale after it (and when the date
+ * cannot be parsed at all the glyph stays neutral — never green). */
+.freshness-status {
+  color: var(--muted);
+  font-weight: 700;
+}
+.freshness-label { color: var(--muted); }
+.freshness--fresh .freshness-status { color: var(--success); }
+.freshness--stale .freshness-status { color: var(--warning); }
 
 /* Visible header theme switch: native button, keyboard accessible. */
 .theme-toggle {
@@ -121,7 +145,7 @@ main { max-width: 100%; margin: 0 auto; padding: 1.5rem; }
 .status { color: var(--muted); }
 
 /* Compact layout (C1): the opbar bar is gone — its three indicators live
- * in #results-count (above the list), #kyndryl-updated (header) and
+ * in #results-count (above the list), .freshness (site header) and
  * #window-range (window module). The count line doubles as the live region. */
 .results-count {
   margin: 0;
@@ -174,6 +198,10 @@ main { max-width: 100%; margin: 0 auto; padding: 1.5rem; }
 @media (max-width: 1100px) {
   /* Wrap allowed here: search takes its own row, control pairs share rows. */
   .search { flex: 1 1 100%; min-width: 0; }
+  /* Header: brand row first, freshness drops to its own right-aligned row
+   * (order 5 keeps it after the theme toggle instead of before it). */
+  .site-header { flex-wrap: wrap; }
+  .freshness { order: 5; flex: 1 1 100%; justify-content: flex-end; }
 }
 @media (max-width: 640px) {
   /* Compact layout (C2): first result ASAP on mobile — trim the top

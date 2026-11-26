@@ -26,6 +26,13 @@
     <div class="brand-side">
       <img class="logo logo-kyndryl" src="assets/images/Kyndryl.png" alt="Kyndryl logo">
     </div>
+    <div class="freshness" id="freshness" title="">
+      <span class="freshness-status" id="freshness-status" aria-hidden="true">&#8212;</span>
+      <span class="freshness-item"><span class="freshness-label">Actualización:</span>
+        <span id="freshness-updated">—</span></span>
+      <span class="freshness-item"><span class="freshness-label">Fuente:</span>
+        <span id="freshness-source">—</span></span>
+    </div>
     <button type="button" id="theme-toggle" class="theme-toggle"
       aria-pressed="true" aria-label="Tema actual: oscuro. Cambiar a tema claro.">&#9789;</button>
   </header>
@@ -122,7 +129,6 @@
       aria-label="Filtros activos" aria-live="polite"></div>
     <div class="results-bar">
       <p class="results-count" id="results-count" role="status" aria-live="polite">Cargando cambios…</p>
-      <span class="kyndryl-meta"><span id="kyndryl-updated">—</span></span>
     </div>
     <ul class="results" id="results" aria-label="Change results"></ul>
 

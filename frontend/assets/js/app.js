@@ -22,9 +22,10 @@
 
   // Compact-layout header slots (C1): three live indicators fed from
   // data.json only (row count, generated_at/source_modified_at, min/max
-  // implementation window), rendered into #results-count, #kyndryl-updated
-  // (results bar now, plus a ⚠️ when the data is over 1h old) and
-  // #window-range since the opbar was removed. Lima wall-clock
+  // implementation window), rendered into #results-count, .freshness
+  // (site header: relative age of build + source workbook, amber
+  // freshness--stale when the data is over 1h old) and #window-range
+  // since the opbar was removed. Lima wall-clock
   // formatting slices the "YYYY-MM-DDTHH:MM:SS" wall text directly — never
   // `new Date(str)` on naive strings, never UTC conversion — so the slots
   // can never shift a day against the search.js overlap logic.
@@ -54,14 +55,21 @@
     return p.d.replace(/^0/, "") + " " + (MONTHS_ES[+p.mo - 1] || p.mo);
   }
 
-  // Source-workbook timestamp for the results-bar slot: "21 Sep · 15:55".
-  // Source date wins; legacy payloads fall back to the build time; "—"
-  // while unknown. Staleness is signaled separately with ⚠️, no clock icon.
-  function fmtUpdated(wall) {
-    var p = wallParts(wall);
-    if (!p) return "—";
-    return p.d.replace(/^0/, "") + " " +
-      (MONTHS_ES[+p.mo - 1] || p.mo) + " · " + p.h + ":" + p.mi;
+  // Relative age for the freshness segment: "hace un momento" /
+  // "hace 5 min" / "hace 3 h" / "hace 2 d". Input is a full ISO string
+  // WITH offset (generated_at / source_modified_at — build_payload always
+  // emits Lima offsets), so Date.parse is safe; naive wall strings would
+  // need toWall first. "—" for empty or unparsable input.
+  function fmtAgo(iso) {
+    var t = Date.parse(iso || "");
+    if (isNaN(t)) return "—";
+    var seconds = Math.max(0, Math.floor((Date.now() - t) / 1000));
+    if (seconds < 60) return "hace un momento";
+    var minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return "hace " + minutes + " min";
+    var hours = Math.floor(minutes / 60);
+    if (hours < 24) return "hace " + hours + " h";
+    return "hace " + Math.floor(hours / 24) + " d";
   }
 
   function toWall(value) {
@@ -94,9 +102,10 @@
     return fmtDayMon(min) + " → " + fmtDayMon(max);
   }
 
-  // Stale-data alert: when the shown source date is over 1h old, a ⚠️
-  // icon (only the icon, with the detail in the title tooltip) warns the
-  // data is not fresh. NaN/unparsable dates show no icon.
+  // Stale-data rule: a shown source date over 1h old yields the ⚠️ mark
+  // and the tooltip detail (" · Data con +Nh, desactualizada"); fresh dates
+  // yield empty strings. NaN/unparsable dates never claim freshness — the
+  // caller decides that with its own parse check.
   var STALE_MS = 3600000;
 
   function staleSuffix(iso) {
@@ -105,37 +114,58 @@
     var hours = Math.floor((Date.now() - t) / STALE_MS);
     return { mark: " ⚠️", note: " · Data con +" + hours + "h, desactualizada" };
   }
-  // Provenance tooltip: always states the build time so it is not lost, and
-  // names the source workbook when known. The shown date describes the
-  // SOURCE workbook, not the build, so a rebuild without a new workbook
-  // cannot claim fresh data (false confidence); the tooltip keeps the build
-  // time discoverable without letting it masquerade as the data date.
-  function provenanceTitle(buildWall) {
+
+  // Provenance tooltip: the absolute times behind the relative ages, so
+  // "hace 3 d" never hides the real date. Both are Lima wall text; a
+  // missing slot is simply omitted.
+  function provenanceTitle(buildWall, sourceWall) {
     var parts = [];
-    if (state.meta.sourceFile) parts.push("Fuente: " + state.meta.sourceFile);
-    if (buildWall) parts.push("Build: " + fmtFull(buildWall) + " (Lima)");
+    if (buildWall) parts.push("Actualización: " + fmtFull(buildWall) + " (Lima)");
+    if (state.meta.sourceFile) {
+      parts.push("Fuente: " + state.meta.sourceFile +
+        (sourceWall ? " · " + fmtFull(sourceWall) + " (Lima)" : ""));
+    }
     return parts.join(" · ");
+  }
+
+  // Freshness segment (site header): relative age of the build and of the
+  // source workbook, plus the green/amber/neutral mark. Staleness follows
+  // the source date (a rebuild without a new workbook cannot claim fresh
+  // data); an unparsable date is neutral, never green. Re-run every minute
+  // by the timer started in load() — the bundle is static, so only the
+  // client can advance "hace X" while the page stays open.
+  function updateFreshness() {
+    if (!els.freshness) return;
+    var generated = state.meta.generatedAt;
+    var source = state.meta.sourceModifiedAt || generated;
+    var known = !isNaN(Date.parse(source || ""));
+    var stale = staleSuffix(source);
+    var isStale = known && stale.mark !== "";
+    if (els.freshUpdated) els.freshUpdated.textContent = fmtAgo(generated);
+    if (els.freshSource) {
+      els.freshSource.textContent = (state.meta.sourceFile || "—") +
+        (source ? " · " + fmtAgo(source) : "");
+    }
+    if (els.freshStatus) {
+      els.freshStatus.textContent = !known ? "—" : (isStale ? "⚠️" : "✓");
+    }
+    els.freshness.classList.toggle("freshness--fresh", known && !isStale);
+    els.freshness.classList.toggle("freshness--stale", isStale);
+    els.freshness.title =
+      provenanceTitle(toWall(generated), toWall(source)) + stale.note;
   }
 
   // Compact-layout slots (C1): the opbar is gone. Count lives in
   // #results-count above the list ("12 resultados de 913 cambios"; always
   // visible/total — unfiltered that's "913 resultados de 913 cambios"),
-  // the source date beside it in .results-bar, the range in #window-range.
+  // the freshness segment in the site header, the range in #window-range.
   function updateOpbar(visible) {
     var total = state.rows.length;
     var shown = (typeof visible === "number") ? visible : total;
     if (els.count) els.count.textContent =
       shown + " resultados de " + total + " cambios";
-    if (els.updated) {
-      // Source workbook date wins; legacy payloads fall back to the build time.
-      var buildWall = toWall(state.meta.generatedAt);
-      var shownWall = toWall(state.meta.sourceModifiedAt) || buildWall;
-      var shownIso = state.meta.sourceModifiedAt || state.meta.generatedAt;
-      var stale = staleSuffix(shownIso);
-      els.updated.textContent = fmtUpdated(shownWall) + stale.mark;
-      els.updated.title = provenanceTitle(buildWall) + stale.note;
-    }
     if (els.range) els.range.textContent = rangeText();
+    updateFreshness();
   }
 
   // Badge color by estado_actual: red (Cancelado/Rechazado), amber
@@ -300,14 +330,22 @@
   function load() {
     els = {
       // els.status keeps the reset() focus target: the count line doubles
-      // as the live region since the opbar was removed (C1).
+      // as the live region since the opbar was removed (C1). The freshness
+      // segment is deliberately NOT a live region: its text re-renders
+      // every minute and must never re-announce to screen readers.
       status: document.getElementById("results-count"),
       count: document.getElementById("results-count"),
-      updated: document.getElementById("kyndryl-updated"),
+      freshness: document.getElementById("freshness"),
+      freshStatus: document.getElementById("freshness-status"),
+      freshUpdated: document.getElementById("freshness-updated"),
+      freshSource: document.getElementById("freshness-source"),
       range: document.getElementById("window-range"),
       results: document.getElementById("results"),
       empty: document.getElementById("empty"),
     };
+    // Relative ages must tick while the page stays open: the published
+    // bundle is static, so only the client can advance "hace X".
+    setInterval(updateFreshness, 60000);
     document.getElementById("reset").addEventListener("click", reset);
     document.getElementById("overlay").addEventListener("click", window.Drawer.close);
 
@@ -356,6 +394,8 @@
     getRows: function () { return state.rows; },
     getVisible: function () { return state.visible; },
     getMeta: function () { return state.meta; },
+    // Exposed for the smoke contract on the header freshness segment.
+    fmtAgo: fmtAgo,
     state: state,
   };
   if (document.readyState !== "loading") load();
